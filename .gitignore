@@ -1,0 +1,21 @@
+node_modules/
+
+# Holds the avatar bridge token. config.example.json is the template.
+avatar/config.json
+avatar/.window-state.json
+avatar/electron-path.txt
+
+# Conversation history and long-term memory — personal, and rebuilt on first run.
+orchestrator/data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+*.log
+
+# Diagnostic renders from tools/. Regenerate with the tool that made them.
+avatar/layers/_*.png
+
+.idea/
+.DS_Store
+Thumbs.db

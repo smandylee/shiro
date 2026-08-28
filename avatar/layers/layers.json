@@ -1,0 +1,196 @@
+{
+  "canvas": {
+    "width": 1280,
+    "height": 1280
+  },
+  "groups": {
+    "body": {
+      "pivot": [
+        640,
+        1280
+      ]
+    },
+    "hair_back": {
+      "pivot": [
+        641,
+        892
+      ]
+    },
+    "head": {
+      "pivot": [
+        641,
+        892
+      ]
+    },
+    "hair_front": {
+      "pivot": [
+        641,
+        892
+      ]
+    },
+    "eyes": {
+      "pivot": [
+        642,
+        542
+      ]
+    },
+    "irides": {
+      "pivot": [
+        642,
+        542
+      ]
+    },
+    "mouth": {
+      "pivot": [
+        642,
+        690
+      ]
+    },
+    "ear_l": {
+      "pivot": [
+        346,
+        308
+      ]
+    },
+    "ear_r": {
+      "pivot": [
+        940,
+        318
+      ]
+    }
+  },
+  "layers": [
+    {
+      "file": "back_hair.png",
+      "id": "back_hair",
+      "group": "hair_back",
+      "depth": 0.9137254953384399
+    },
+    {
+      "id": "tail-a",
+      "file": "tail-a.png",
+      "x": 21,
+      "y": 470,
+      "depth": 0.9058823585510254,
+      "group": "body",
+      "warp": "tail"
+    },
+    {
+      "id": "tail-b",
+      "file": "tail-b.png",
+      "x": 908,
+      "y": 756,
+      "depth": 0.9058823585510254,
+      "group": "body",
+      "warp": "tail"
+    },
+    {
+      "file": "neck.png",
+      "id": "neck",
+      "group": "body",
+      "depth": 0.7607843279838562
+    },
+    {
+      "file": "arms.png",
+      "id": "arms",
+      "group": "body",
+      "depth": 0.75
+    },
+    {
+      "file": "topwear.png",
+      "id": "topwear",
+      "group": "body",
+      "depth": 0.7254902124404907
+    },
+    {
+      "file": "face.png",
+      "id": "face",
+      "group": "head",
+      "depth": 0.3843137323856354
+    },
+    {
+      "file": "nose.png",
+      "id": "nose",
+      "group": "head",
+      "depth": 0.38331374526023865
+    },
+    {
+      "file": "mouth.png",
+      "id": "mouth",
+      "group": "mouth",
+      "depth": 0.3607843220233917
+    },
+    {
+      "file": "ears-r.png",
+      "id": "ears-r",
+      "group": "ear_l",
+      "depth": 0.34117650985717773
+    },
+    {
+      "file": "ears-l.png",
+      "id": "ears-l",
+      "group": "ear_r",
+      "depth": 0.34117650985717773
+    },
+    {
+      "file": "eyebrow-l.png",
+      "id": "eyebrow-l",
+      "group": "head",
+      "depth": 0.3372548818588257
+    },
+    {
+      "file": "headwear.png",
+      "id": "headwear",
+      "group": "head",
+      "depth": 0.3333333432674408
+    },
+    {
+      "file": "eyebrow-r.png",
+      "id": "eyebrow-r",
+      "group": "head",
+      "depth": 0.30980396270751953
+    },
+    {
+      "file": "eyewhite-r.png",
+      "id": "eyewhite-r",
+      "group": "eyes",
+      "depth": 0.29411768913269043
+    },
+    {
+      "file": "eyewhite-l.png",
+      "id": "eyewhite-l",
+      "group": "eyes",
+      "depth": 0.29411768913269043
+    },
+    {
+      "file": "irides-l.png",
+      "id": "irides-l",
+      "group": "irides",
+      "depth": 0.2901960611343384
+    },
+    {
+      "file": "irides-r.png",
+      "id": "irides-r",
+      "group": "irides",
+      "depth": 0.2627451419830322
+    },
+    {
+      "file": "eyelash-l.png",
+      "id": "eyelash-l",
+      "group": "eyes",
+      "depth": 0.2549020051956177
+    },
+    {
+      "file": "eyelash-r.png",
+      "id": "eyelash-r",
+      "group": "eyes",
+      "depth": 0.24313724040985107
+    },
+    {
+      "file": "front_hair.png",
+      "id": "front_hair",
+      "group": "hair_front",
+      "depth": 0.07058823853731155
+    }
+  ]
+}

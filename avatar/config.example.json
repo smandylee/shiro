@@ -1,0 +1,6 @@
+{
+  "bridgeUrl": "ws://127.0.0.1:18790",
+  "bridgeToken": "PUT-THE-SAME-VALUE-AS-AVATAR_BRIDGE_TOKEN-HERE",
+  "scale": 0.32,
+  "showBubble": false
+}

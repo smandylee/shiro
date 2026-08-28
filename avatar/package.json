@@ -1,0 +1,20 @@
+{
+  "name": "shiro-avatar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop overlay avatar for Shiro",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "pngjs": "^7.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.21.3"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  }
+}

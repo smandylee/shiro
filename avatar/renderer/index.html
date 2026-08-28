@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>시로</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="shiro"></canvas>
+      <div id="bubble" class="hidden"></div>
+    </div>
+
+    <div id="panel" class="hidden">
+      <div id="drag-handle">시로 · 조작 패널</div>
+      <div id="status" class="status">연결 중…</div>
+      <div id="emotions"></div>
+      <div class="row">
+        <label>크기 <input id="scale" type="range" min="0.15" max="0.8" step="0.01" /></label>
+      </div>
+      <div class="row">
+        <label><input id="pivots" type="checkbox" /> 회전축 보기</label>
+        <label><input id="bubble-toggle" type="checkbox" /> 말풍선</label>
+      </div>
+      <div class="row">
+        <button id="hide-panel">닫기 (Ctrl+Shift+S)</button>
+        <button id="quit" class="danger">종료</button>
+      </div>
+      <div class="hint">Ctrl+Shift+S 로 조작 모드 켜기/끄기 · 드래그로 이동</div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
