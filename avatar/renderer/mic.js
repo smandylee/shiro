@@ -5,11 +5,13 @@ import { rms, encodeWav, speechStats, toBase64 } from "./wav.js";
 // nothing is kept once the audio has been handed back.
 
 const SAMPLE_RATE = 16000;
-const BLOCK = 4096;
+// Small enough (128 ms) that a one-word reply still fills a block with speech.
+const BLOCK = 2048;
 // Louder than this counts as speech (RMS, 0..1). Echo cancellation and noise
 // suppression are on, so room hum stays well below it.
 const SPEECH_RMS = 0.015;
-const MIN_SPEECH_MS = 250;
+// "응" is about this long. Shorter than this is a cough or a bump, not a reply.
+const MIN_SPEECH_MS = 120;
 // This long a pause after speaking ends the utterance. It comes off every reply's
 // wait, so it is kept short; pressing the hotkey again sends immediately anyway.
 const END_SILENCE_MS = 1000;
@@ -60,7 +62,10 @@ export async function startListening({ onDone }) {
     if (finished) return;
     finished = true;
     release();
-    if (speechMs < MIN_SPEECH_MS) return onDone(null, reason === "no-speech" ? "no-speech" : "short");
+    if (speechMs < MIN_SPEECH_MS) {
+      console.log(`[mic] recorded ${(totalMs / 1000).toFixed(1)}s (${reason}): only ${Math.round(speechMs)}ms above the speech level -> turned away`);
+      return onDone(null, reason === "no-speech" ? "no-speech" : "short");
+    }
     // Loud, but is it an utterance? A steady fan or hum must not be sent as if it were words.
     const stats = speechStats(blocks, rate);
     console.log(

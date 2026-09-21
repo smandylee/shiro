@@ -555,6 +555,7 @@ let listening = null; // the running recording, or null
 let micNoticeTimer = null;
 
 function showMic(text, { hideAfterMs } = {}) {
+  console.log(`[mic] badge: ${text}`);
   clearTimeout(micNoticeTimer);
   micBadge.textContent = text;
   micBadge.classList.remove("hidden");
@@ -573,6 +574,7 @@ function sendJson(payload) {
 }
 
 async function toggleMic() {
+  console.log(`[mic] toggle: listening=${Boolean(listening)} socket=${socket ? socket.readyState : "none"}`);
   // Pressing again while listening ends it and sends what was said.
   if (listening) {
     listening.stop();

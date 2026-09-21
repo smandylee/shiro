@@ -12,7 +12,8 @@ export function rms(samples) {
 const FRAME = 480; // 30 ms at 16 kHz
 const HOP = 320; // 20 ms
 const ACTIVE_RMS = 0.008;
-const MIN_ACTIVE_FRAMES = 12; // about a quarter second above the room's floor
+// A reply like "응" or "맞아" is only a couple of tenths of a second; this must let it through.
+const MIN_ACTIVE_FRAMES = 5; // 100 ms above the room's floor
 const MIN_CONTRAST = 2.5;
 
 /**

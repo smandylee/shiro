@@ -1,5 +1,5 @@
 const { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, screen, session } = require("electron");
-const { readFileSync, existsSync, writeFileSync } = require("node:fs");
+const { readFileSync, existsSync, writeFileSync, appendFileSync, statSync } = require("node:fs");
 const path = require("node:path");
 
 // Shiro sits on top of whatever the owner is doing, so the window is
@@ -7,6 +7,24 @@ const path = require("node:path");
 // deliberate toggle — otherwise she would swallow clicks meant for the desktop.
 
 const CONFIG_PATH = path.join(__dirname, "config.json");
+// What the microphone and watch mode decided, and which hotkeys were pressed,
+// so "it stopped answering" can be explained afterwards. No audio, no secrets.
+const LOG_PATH = path.join(__dirname, "avatar.log");
+const LOG_MAX_BYTES = 200 * 1024;
+
+function logLine(line) {
+  try {
+    appendFileSync(LOG_PATH, `${new Date().toISOString().slice(11, 19)} ${line}\n`);
+  } catch {
+    /* logging must never get in the way */
+  }
+}
+
+try {
+  if (existsSync(LOG_PATH) && statSync(LOG_PATH).size > LOG_MAX_BYTES) writeFileSync(LOG_PATH, "");
+} catch {
+  /* ignore */
+}
 const STATE_PATH = path.join(__dirname, ".window-state.json");
 
 function loadJson(file, fallback) {
@@ -58,6 +76,11 @@ function createWindow() {
       // renderer refuses to play it.
       autoplayPolicy: "no-user-gesture-required",
     },
+  });
+
+  // Mic and watch decisions, plus anything that went wrong on the page.
+  win.webContents.on("console-message", (_e, level, message) => {
+    if (level >= 2 || /^\[(mic|watch)\]/.test(message)) logLine(`[page] ${message}`);
   });
 
   win.setAlwaysOnTop(true, "screen-saver");
@@ -200,6 +223,7 @@ app.whenReady().then(() => {
   const micKey = typeof config.micHotkey === "string" && config.micHotkey ? config.micHotkey : "CommandOrControl+Alt+V";
   if (!globalShortcut.register(micKey, () => {
     if (!win) return;
+    logLine(`[mic] hotkey pressed (${config.allowMicrophone === true ? "allowed" : "microphone is off in config.json"})`);
     win.webContents.send("mic", config.allowMicrophone === true ? { toggle: true } : { denied: true });
   })) {
     console.error(`could not register the microphone hotkey ${micKey} (already used by another app?)`);
