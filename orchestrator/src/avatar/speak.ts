@@ -192,6 +192,12 @@ export function startReply(emotion: Emotion, initialText = "", onFirstAudio?: ()
   return active;
 }
 
+/** The owner started talking over her: stop asking for audio nobody should hear now. */
+export function interruptSpeech(): void {
+  active?.abort();
+  active = null;
+}
+
 /** A finished message (reminders, briefings): voiced line by line like a streamed reply. */
 export function sayAndSpeak(emotion: Emotion, text: string): void {
   const voice = startReply(emotion, text);

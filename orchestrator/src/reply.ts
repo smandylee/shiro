@@ -29,13 +29,52 @@ export class StreamedReply {
   /** `sendLine` posts one line to the owner's chat (the typing pause is its business). */
   constructor(private readonly sendLine: (line: string) => Promise<void>) {}
 
+  // While waiting for permission (see hold), what the model writes is kept back.
+  private held: string[] | null = null;
+  private permission: Promise<void> | null = null;
+  private discarded = false;
+
+  /**
+   * Keeps everything back until `allowed` settles: shown and voiced as usual if
+   * it is true, thrown away if it is false (or fails). The model is already
+   * writing meanwhile, so an answer that is allowed costs no extra wait.
+   */
+  hold(allowed: Promise<boolean>): void {
+    this.held = [];
+    this.permission = allowed
+      .catch(() => false)
+      .then((ok) => {
+        const kept = this.held ?? [];
+        this.held = null;
+        if (!ok) {
+          this.discarded = true;
+          this.voice?.abort();
+          return;
+        }
+        for (const delta of kept) this.buffer += delta;
+        this.drain(false);
+      });
+  }
+
+  /** Whether the reply was thrown away because it wasn't allowed. */
+  get wasDiscarded(): boolean {
+    return this.discarded;
+  }
+
   push(delta: string): void {
+    if (this.discarded) return;
+    if (this.held) {
+      this.held.push(delta);
+      return;
+    }
     this.buffer += delta;
     this.drain(false);
   }
 
   /** The model is done: flush the last line, and wait for the chat bubbles (not the audio). */
   async finish(): Promise<void> {
+    await this.permission;
+    if (this.discarded) return;
     this.drain(true);
     await this.bubbles;
     // The voice keeps streaming after this; the chat doesn't wait on it.
@@ -48,6 +87,9 @@ export class StreamedReply {
    * (an apology, say) lands after them rather than in front.
    */
   abort(): Promise<void> {
+    // Anything still being held back is dropped too.
+    this.discarded = this.held !== null || this.discarded;
+    this.held = null;
     this.voice?.abort();
     return this.bubbles;
   }

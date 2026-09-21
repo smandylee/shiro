@@ -20,7 +20,10 @@ export type AvatarEvent =
   | { type: "speak_end"; id: string }
   // Asks the avatar's PC for a picture of the owner's screen. The answer comes
   // back as a `capture_result` carrying the same id.
-  | { type: "capture_request"; id: string };
+  | { type: "capture_request"; id: string }
+  // What she made of the owner's spoken words ("" when nothing could be made out),
+  // so the avatar can stop showing "listening…".
+  | { type: "heard"; text: string };
 
 type Client = {
   socket: WebSocket;
@@ -121,6 +124,35 @@ function isValidImage(mime: unknown, data: unknown): data is string {
   );
 }
 
+/* ---------- voice input: the owner speaks to the avatar ---------- */
+
+export type VoiceAudio = { mime: string; data: string };
+export type VoiceListener = {
+  /** The owner started talking: whatever she is saying should stop. */
+  onStart: () => void;
+  /** One finished utterance. */
+  onInput: (audio: VoiceAudio) => void;
+};
+
+let voiceListener: VoiceListener | null = null;
+// About a minute of 16 kHz mono 16-bit audio, as base64.
+const MAX_VOICE_BASE64 = 4 * 1024 * 1024;
+
+export function setVoiceListener(listener: VoiceListener): void {
+  voiceListener = listener;
+}
+
+function onVoiceMessage(msg: { type?: string; mime?: unknown; data?: unknown }): void {
+  if (msg.type === "voice_start") {
+    voiceListener?.onStart();
+  } else if (msg.type === "voice_input") {
+    if (msg.mime !== "audio/wav" || typeof msg.data !== "string" || msg.data.length === 0 || msg.data.length > MAX_VOICE_BASE64) {
+      return;
+    }
+    voiceListener?.onInput({ mime: msg.mime, data: msg.data });
+  }
+}
+
 function onWatchMessage(client: Client, msg: { type?: string; on?: unknown; mime?: unknown; data?: unknown }): void {
   if (msg.type === "watch_state") {
     const on = msg.on === true;
@@ -203,6 +235,7 @@ export function startAvatarBridge(emotions: readonly string[]): void {
         // The only thing a connected avatar says to us is an answer to a request.
         const reply = parsed as { type?: string; id?: unknown; on?: unknown; mime?: unknown; data?: unknown; error?: unknown };
         if (reply.type === "capture_result") onCaptureResult(client, reply);
+        else if (reply.type === "voice_start" || reply.type === "voice_input") onVoiceMessage(reply);
         else onWatchMessage(client, reply);
         return;
       }

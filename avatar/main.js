@@ -1,4 +1,4 @@
-const { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, screen } = require("electron");
+const { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, screen, session } = require("electron");
 const { readFileSync, existsSync, writeFileSync } = require("node:fs");
 const path = require("node:path");
 
@@ -192,6 +192,22 @@ app.whenReady().then(() => {
   globalShortcut.register("CommandOrControl+Shift+Q", () => app.quit());
   // Ctrl+Shift+W: she watches the screen with the owner (and stops).
   globalShortcut.register("CommandOrControl+Shift+W", () => setWatching(!watching));
+
+  // Talking to her: the first press starts listening, the next one (or a pause
+  // in speech) sends it. Ctrl+Alt+M by default — Ctrl+Shift+V would swallow
+  // "paste as plain text" in every other app. Off unless config.json allows it.
+  const micKey = typeof config.micHotkey === "string" && config.micHotkey ? config.micHotkey : "CommandOrControl+Alt+M";
+  if (!globalShortcut.register(micKey, () => {
+    if (!win) return;
+    win.webContents.send("mic", config.allowMicrophone === true ? { toggle: true } : { denied: true });
+  })) {
+    console.error(`could not register the microphone hotkey ${micKey} (already used by another app?)`);
+  }
+
+  // The microphone is only ever opened when the owner switched it on.
+  const micAllowed = (permission) => permission === "media" && config.allowMicrophone === true;
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(micAllowed(permission)));
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => micAllowed(permission));
 
   ipcMain.handle("get-config", () => config);
   ipcMain.handle("capture-screen", () =>

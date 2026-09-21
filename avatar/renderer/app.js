@@ -1,5 +1,6 @@
 import { poseFor, blendPose, EMOTION_POSES } from "./emotions.js";
 import { prepareTail, poseTail, tailBend, drawTail } from "./tail.js";
+import { startListening } from "./mic.js";
 
 const EMOTIONS = Object.keys(EMOTION_POSES);
 const TRANSITION_MS = 700;
@@ -547,6 +548,72 @@ let backoff = 1000;
 // avatar sends on its own rather than in reply to a message.
 let socket = null;
 
+/* ---------- talking to her ---------- */
+
+const micBadge = document.getElementById("mic-badge");
+let listening = null; // the running recording, or null
+let micNoticeTimer = null;
+
+function showMic(text, { hideAfterMs } = {}) {
+  clearTimeout(micNoticeTimer);
+  micBadge.textContent = text;
+  micBadge.classList.remove("hidden");
+  if (hideAfterMs) micNoticeTimer = setTimeout(() => !listening && micBadge.classList.add("hidden"), hideAfterMs);
+}
+
+function hideMic() {
+  clearTimeout(micNoticeTimer);
+  micBadge.classList.add("hidden");
+}
+
+function sendJson(payload) {
+  if (socket?.readyState !== WebSocket.OPEN) return false;
+  socket.send(JSON.stringify(payload));
+  return true;
+}
+
+async function toggleMic() {
+  // Pressing again while listening ends it and sends what was said.
+  if (listening) {
+    listening.stop();
+    return;
+  }
+  if (socket?.readyState !== WebSocket.OPEN) {
+    showMic("🎤 시로와 연결이 안 돼 있어", { hideAfterMs: 3000 });
+    return;
+  }
+
+  // Whatever she is saying stops the moment the owner starts talking.
+  stopVoice();
+  sendJson({ type: "voice_start" });
+  showMic("🎤 듣는 중… (말이 끝나면 자동으로 보내져)");
+  try {
+    listening = await startListening({
+      onDone: (audio, reason) => {
+        listening = null;
+        if (!audio) {
+          const notice = { "no-speech": "🎤 말이 안 들렸어", noise: "🎤 말소리가 아닌 것 같아" }[reason] ?? "🎤 너무 짧았어";
+          showMic(notice, { hideAfterMs: 2500 });
+          return;
+        }
+        showMic("🎤 알아듣는 중…");
+        if (!sendJson({ type: "voice_input", ...audio })) showMic("🎤 연결이 끊겨서 못 보냈어", { hideAfterMs: 3000 });
+      },
+    });
+  } catch (err) {
+    listening = null;
+    console.error("microphone unavailable:", err);
+    showMic("🎤 마이크를 쓸 수 없어 (Windows 마이크 설정 확인)", { hideAfterMs: 4000 });
+  }
+}
+
+function setupMic() {
+  window.shiro.onMic(({ toggle, denied }) => {
+    if (denied) showMic("🎤 마이크가 꺼져 있어 (config.json 의 allowMicrophone)", { hideAfterMs: 4000 });
+    else if (toggle) void toggleMic();
+  });
+}
+
 /* ---------- watch mode ---------- */
 
 const watchBadge = document.getElementById("watch-badge");
@@ -601,7 +668,12 @@ function connect() {
       setStatus("시로와 연결됨", "ok");
       // A reconnect starts a fresh session on the other end.
       if (watching) sendWatchState();
+    } else if (event.type === "heard") {
+      // Text comes back once she has written out what was said; empty means she couldn't.
+      if (event.text) hideMic();
+      else showMic("🎤 못 알아들었어", { hideAfterMs: 2500 });
     } else if (event.type === "say") {
+      if (!listening) hideMic();
       onSay(event);
     } else if (event.type === "caption") {
       onCaption(event);
@@ -692,6 +764,7 @@ async function main() {
 
   window.shiro.onInteractive((on) => panel.classList.toggle("hidden", !on));
   setupWatch();
+  setupMic();
 
   try {
     sheet = await loadSheet();

@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("shiro", {
   getConfig: () => ipcRenderer.invoke("get-config"),
   captureScreen: () => ipcRenderer.invoke("capture-screen"),
+  onMic: (cb) => ipcRenderer.on("mic", (_e, state) => cb(state)),
   onWatch: (cb) => ipcRenderer.on("watch", (_e, state) => cb(state)),
   onWatchFrame: (cb) => ipcRenderer.on("watch-frame", (_e, frame) => cb(frame)),
   setWatching: (value) => ipcRenderer.send("set-watching", value),

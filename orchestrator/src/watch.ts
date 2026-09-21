@@ -1,7 +1,7 @@
 import { ai } from "./llm/client.js";
 import { SYSTEM_PROMPT, parseEmotionTag } from "./persona.js";
 import { getSetting } from "./memory/settings.js";
-import { addTurn, getLastTurn, getRecentHistory } from "./memory/shortterm.js";
+import { ASKED, addTurn, getLastTurn, getRecentHistory, hasUnansweredQuestion } from "./memory/shortterm.js";
 import { recordUsage } from "./memory/usage.js";
 import { sayAndSpeak } from "./avatar/speak.js";
 import { setWatchListener, type ScreenCapture } from "./avatar/bridge.js";
@@ -22,7 +22,8 @@ const REMEMBERED_REMARKS = 8;
 // Remarks are voiced; only questions — which want an answer — also go to the DM.
 const DISCORD_MODE = process.env.SHIRO_WATCH_DISCORD ?? "questions"; // "questions" | "all" | "none"
 
-const OPENED = "(게임을 구경하던 시로가 말을 걸었어)";
+const WATCH_NOTE = "(게임을 구경하던 시로가 말을 걸었어)";
+const WATCH_NOTE_RE = /^\((시로가|게임을 구경)/;
 
 type SendableChannel = { send: (content: string) => Promise<unknown> };
 type GetChannel = (channelId: string) => Promise<SendableChannel | null>;
@@ -58,27 +59,33 @@ async function remark(frame: ScreenCapture, getChannel: GetChannel): Promise<voi
   const channelId = getSetting("ownerChannelId");
   if (!channelId) return;
   const last = getLastTurn(channelId);
-  if (last && last.role === "user" && last.text !== OPENED && now - last.at < OWNER_BUSY_MS) return;
+  if (last && last.role === "user" && !WATCH_NOTE_RE.test(last.text) && now - last.at < OWNER_BUSY_MS) return;
+
+  // A question she asked earlier hasn't been answered: she may still react to
+  // what's on screen, but she doesn't ask another.
+  const canAsk = !hasUnansweredQuestion(channelId);
 
   busy = true;
   try {
-    const raw = await compose(frame, channelId);
+    const raw = await compose(frame, channelId, canAsk);
     // Passing also waits out the gap: a quiet stretch shouldn't mean a model
     // call on every changed frame.
     nextAllowedAt = Date.now() + COMMENT_GAP_MS;
     if (!raw || !watching) return;
 
     const { emotion, text } = parseEmotionTag(raw);
+    const isQuestion = /[?？]/.test(text);
+    if (isQuestion && !canAsk) return; // the model asked anyway: drop it
     sayAndSpeak(emotion, text);
     remarks = [...remarks, text].slice(-REMEMBERED_REMARKS);
 
-    const isQuestion = /[?？]/.test(text);
     if (DISCORD_MODE === "all" || (DISCORD_MODE === "questions" && isQuestion)) {
       const channel = await getChannel(channelId);
       if (channel) await channel.send(text.slice(0, 2000));
     }
     // In the history either way, so an answer typed later has something to refer to.
-    addTurn(channelId, "user", OPENED);
+    // A question is marked as one, so it counts as unanswered until the owner writes.
+    addTurn(channelId, "user", isQuestion ? ASKED : WATCH_NOTE);
     addTurn(channelId, "model", raw);
     console.log(`[watch] remark${isQuestion ? " (question)" : ""}: ${text}`);
   } finally {
@@ -86,7 +93,7 @@ async function remark(frame: ScreenCapture, getChannel: GetChannel): Promise<voi
   }
 }
 
-async function compose(frame: ScreenCapture, channelId: string): Promise<string | null> {
+async function compose(frame: ScreenCapture, channelId: string, canAsk: boolean): Promise<string | null> {
   const history = getRecentHistory(channelId, 8)
     .map((t) => `${t.role === "user" ? "주인님" : "시로"}: ${t.text}`)
     .join("\n");
@@ -94,7 +101,9 @@ async function compose(frame: ScreenCapture, channelId: string): Promise<string 
   const prompt =
     `[게임 구경 중] 지금 주인님이 하는 걸 옆에서 같이 보고 있어. 이미지가 지금 주인님 화면이야.\n` +
     `같이 보는 친구처럼 한마디 해줘:\n` +
-    `- 화면에서 실제로 보이는 것에 대한 짧은 반응이나, 게임에 대한 궁금한 질문 하나. 반쯤은 질문이면 좋다 ("이 캐릭터는 누구야?", "이거 어떻게 깨는 거야?", "방금 그거 일부러 한 거야?").\n` +
+    (canAsk
+      ? `- 화면에서 실제로 보이는 것에 대한 짧은 반응이나, 게임에 대한 궁금한 질문 하나. 반쯤은 질문이면 좋다 ("이 캐릭터는 누구야?", "이거 어떻게 깨는 거야?", "방금 그거 일부러 한 거야?").\n`
+      : `- 시로가 아까 한 질문에 주인님이 아직 답을 안 했다. 그래서 지금은 질문하지 않는다. 화면에서 실제로 보이는 것에 대한 물음표 없는 짧은 반응만 한다 (감탄, 응원 등).\n`) +
     `- 딱 한 줄, 짧게. 말로 들리는 거라 길면 안 된다.\n` +
     `- 방금 한 말과 비슷한 말을 반복하지 않는다. 주인님이 전에 대답한 게 있으면 그걸 이어받는다.\n` +
     `- 보이지 않는 걸 지어내지 않는다. 게임이 아닌 화면(메신저, 문서, 은행 등)이면 내용을 읽거나 언급하지 말고 PASS.\n` +

@@ -11,25 +11,53 @@ if (!apiKey) {
   console.warn("[memory] PINECONE_API_KEY not set — long-term memory disabled.");
 }
 
+// The index handle is made once, with its address. Asking the SDK for
+// `pinecone.index(name)` on every call makes it look the address up again
+// (~0.2s per call, and ~0.8s the first time from Hong Kong).
+let handle: ReturnType<Pinecone["index"]> | null = null;
+
 async function ensureIndex(): Promise<void> {
   if (!pinecone) return;
   if (!ready) {
     ready = (async () => {
       const existing = await pinecone.listIndexes();
-      const exists = existing.indexes?.some((idx) => idx.name === INDEX_NAME);
-      if (!exists) {
-        console.log(`[memory] creating pinecone index "${INDEX_NAME}"...`);
-        await pinecone.createIndex({
-          name: INDEX_NAME,
-          dimension: EMBEDDING_DIMENSION,
-          metric: "cosine",
-          spec: { serverless: { cloud: "aws", region: "us-east-1" } },
-          waitUntilReady: true,
-        });
+      const found = existing.indexes?.find((idx) => idx.name === INDEX_NAME);
+      if (found) {
+        handle = pinecone.index(INDEX_NAME, found.host);
+        return;
       }
+      console.log(`[memory] creating pinecone index "${INDEX_NAME}"...`);
+      const created = await pinecone.createIndex({
+        name: INDEX_NAME,
+        dimension: EMBEDDING_DIMENSION,
+        metric: "cosine",
+        spec: { serverless: { cloud: "aws", region: "us-east-1" } },
+        waitUntilReady: true,
+      });
+      handle = pinecone.index(INDEX_NAME, created?.host);
     })();
   }
   await ready;
+}
+
+function memoryIndex() {
+  return handle ?? pinecone!.index(INDEX_NAME);
+}
+
+/**
+ * Sets up the connections ahead of the first real message — the index address
+ * and both network paths — so the first reply after a restart isn't the slow one.
+ */
+export async function warmMemory(): Promise<void> {
+  if (!pinecone) return;
+  try {
+    await ensureIndex();
+    const vector = await embedText("워밍업", "RETRIEVAL_QUERY");
+    await memoryIndex().query({ vector, topK: 1 });
+    console.log("[memory] warmed up");
+  } catch (err) {
+    console.error("[memory] warm-up failed:", err);
+  }
 }
 
 // Long-term memory is a single shared pool across everyone Shiro talks to
@@ -52,7 +80,7 @@ export async function remember(
       "RETRIEVAL_DOCUMENT"
     );
     const id = `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    await pinecone.index(INDEX_NAME).upsert({
+    await memoryIndex().upsert({
       records: [
         {
           id,
@@ -89,7 +117,7 @@ export async function recall(queryText: string, topK = 5): Promise<string[]> {
   try {
     await ensureIndex();
     const vector = await embedText(queryText, "RETRIEVAL_QUERY");
-    const result = await pinecone.index(INDEX_NAME).query({
+    const result = await memoryIndex().query({
       vector,
       topK,
       includeMetadata: true,
