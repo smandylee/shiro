@@ -30,6 +30,7 @@ import { lookUpNamuWiki } from "../knowledge/namuwiki.js";
 import { searchWeb } from "../knowledge/websearch.js";
 import { requestScreenCapture } from "../avatar/bridge.js";
 import { muteChatter } from "../chatter.js";
+import { recall } from "../memory/longterm.js";
 import {
   MAX_FACTS,
   addFact,
@@ -408,6 +409,25 @@ const ownerTools: FunctionDeclaration[] = [
 
 // Tool calls that touch the owner's private data — exchanges that use any of
 // these are excluded from the shared long-term memory pool.
+// Offered only for spoken messages (see chat()).
+const recallMemoryTool: FunctionDeclaration = {
+  name: "recall_memory",
+  description:
+    "주인님과 예전에 나눈 대화를 기억에서 찾아본다. 주인님이 예전에 한 말이나 나눈 이야기를 떠올려야 하는 말을 할 때만 쓴다 " +
+    "(예: '저번에 내가 뭐라고 했더라?', '전에 말한 그 게임 뭐였지?', '아까 얘기하던 거 이어서'). 일상 대화나 새로운 질문에는 쓰지 않는다. " +
+    "찾은 내용에서 실제로 있는 것만 근거로 답하고, 없으면 기억에 없다고 말한다.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      query: {
+        type: Type.STRING,
+        description: "찾을 내용을 한국어로 풀어 쓴 한두 문장. 주제와 핵심 단어를 넣는다 (예: '림버스 컴퍼니에서 좋아하는 캐릭터').",
+      },
+    },
+    required: ["query"],
+  },
+};
+
 const PERSONAL_TOOLS = new Set([
   "look_at_screen",
   "show_profile",
@@ -602,6 +622,15 @@ async function runTool(
         return `화면을 못 봤어: ${err instanceof Error ? err.message : "알 수 없는 오류"}`;
       }
     }
+    case "recall_memory": {
+      if (!isOwner) return "이건 주인님만 쓸 수 있어.";
+      const query = typeof args.query === "string" ? args.query.trim() : "";
+      if (!query) return "무엇을 찾을지 알려줘야 해.";
+      const found = await recall(query, 5);
+      return found.length > 0
+        ? `기억에서 찾은 것 (날짜와 함께):\n${found.join("\n")}`
+        : "관련된 기억을 찾지 못했어. 기억에 없다고 솔직히 말한다.";
+    }
     case "show_profile": {
       if (!isOwner) return "이건 주인님만 볼 수 있어.";
       return renderProfileNumbered() || "아직 주인님에 대해 정리해 둔 게 없어.";
@@ -780,7 +809,12 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
     systemInstruction +=
       `\n\n[이 메시지는 음성이야 (오디오가 첨부돼 있다) — 잘못 들었을 수 있다] ` +
       `일정 삭제나 수정, 메일 전송, 컴퓨터 명령 실행, 다른 사람에게 메시지 보내기처럼 되돌리기 어렵거나 다른 사람에게 영향이 가는 작업은 바로 실행하지 말고, ` +
-      `"이렇게 들었는데 맞아?"라고 무엇을 하려는지 먼저 확인한다. 주인님이 맞다고 하면 그때 한다. 조회나 가벼운 대화는 그대로 답해도 된다.`;
+      `"이렇게 들었는데 맞아?"라고 무엇을 하려는지 먼저 확인한다. 주인님이 맞다고 하면 그때 한다. 조회나 가벼운 대화는 그대로 답해도 된다. ` +
+      `음성으로 온 말에는 예전 기억이 자동으로 붙지 않는다. 주인님이 예전에 나눈 대화나 전에 한 말을 떠올려야 하는 말을 하면 ` +
+      `("저번에", "전에", "아까 말한", "내가 뭐라고 했더라"), 추측하지 말고 recall_memory 도구로 찾아본 뒤 답한다. 찾아도 없으면 기억에 없다고 솔직히 말한다. ` +
+      `그런 말이 아닌 일상 대화에는 recall_memory를 쓰지 않는다. ` +
+      `예전 대화를 묻는 말에는 recall_memory 한 번이면 충분하다. 일정, 할 일, 노트, 프로필을 묻는 게 아닌 한 그 도구들을 같이 부르지 않는다 ` +
+      `(도구를 부를 때마다 주인님은 더 기다린다). 검색 결과가 비었으면 다시 다른 도구로 뒤지지 말고 기억에 없다고 답한다.`;
   }
 
   // The owner's profile goes only to the owner's conversations: it is what she
@@ -812,7 +846,11 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
   // grounding attached to every call: grounding on each turn added a long
   // latency tail even to small talk. Owner-only, so guests can't turn Shiro
   // into a free open search proxy.
-  const tools: Tool[] = [{ functionDeclarations: isOwner ? ownerTools : guestTools }];
+  // A typed message already carries what she remembers of it; a spoken one doesn't
+  // (its words aren't written out yet, and waiting for them is the delay avoided),
+  // so for speech she can look things up herself when the words call for it.
+  const declarations = isOwner ? ownerTools : guestTools;
+  const tools: Tool[] = [{ functionDeclarations: opts.viaVoice && isOwner ? [...declarations, recallMemoryTool] : declarations }];
 
   const config = { systemInstruction, tools };
 
