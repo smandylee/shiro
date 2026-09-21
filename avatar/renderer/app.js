@@ -69,6 +69,15 @@ const HEAD_FOLLOW = 1.8; // rad/s-ish; lower = heavier head
 // exactly that lag.
 let hairLag = 0;
 
+// How open the mouth is, as a vertical scale of the one mouth layer she has (an
+// open smile). 1 is that smile as drawn; squashed toward MOUTH_CLOSED it reads
+// as a closed smile, so one layer is enough to open and shut while she talks.
+const MOUTH_CLOSED = 0.25;
+// Speech may open her wider than the resting smile, otherwise most of it would
+// only ever hover below that and read as a small twitch.
+const MOUTH_OPEN = 1.2;
+let mouthScale = 1;
+
 function setStatus(text, cls) {
   statusEl.textContent = text;
   statusEl.className = `status ${cls ?? ""}`;
@@ -189,6 +198,8 @@ function applyGroup(group, pose, time, blink) {
       break;
     case "mouth":
       ctx.translate(0, breathe * 0.3);
+      // About the group's own pivot, so it closes toward the mouth's centre line.
+      ctx.scale(1, mouthScale);
       break;
     default:
       break;
@@ -276,6 +287,14 @@ function draw(now) {
 
   hairLag += (head.tilt - hairLag) * Math.min(1, dt * 5);
 
+  // Speaking: follow the voice between closed and open. Otherwise return to
+  // the resting open smile. It snaps open faster than it eases shut, which is
+  // what makes a mouth read as speech rather than a slow pulse.
+  const level = voiceLevel();
+  const mouthTarget = level === null ? 1 : MOUTH_CLOSED + (MOUTH_OPEN - MOUTH_CLOSED) * level;
+  const mouthRate = level === null ? 6 : mouthTarget > mouthScale ? 30 : 16;
+  mouthScale += (mouthTarget - mouthScale) * (1 - Math.exp(-dt * mouthRate));
+
   const dpr = window.devicePixelRatio || 1;
   const w = (sheet.canvas.width + PAD.x * 2) * config.scale;
   const h = (sheet.canvas.height + PAD.top + PAD.bottom) * config.scale;
@@ -346,16 +365,47 @@ let currentSayId = null;
 // MediaSource as they come, so playback starts on the first chunk instead of
 // after the whole clip. Where MediaSource can't take the format, the chunks are
 // gathered and played as one clip once the stream ends.
-let voice = null; // { id, audio, url, ms, sb, queue, ended, parts, mime, started }
+let voice = null; // { id, audio, url, ms, sb, queue, ended, parts, mime, started, analyser, gain, samples, nodes }
 
 const HOLD_TAIL_MS = 700; // let the pose settle a beat after the last word
 const STREAM_STALL_MS = 20000; // never hold a pose longer than this waiting on audio
+
+let audioCtx = null;
+
+// Puts the clip's audio through an analyser (for the mouth) and then a gain
+// node (the volume knob) on its way to the speakers. The analyser is tapped
+// before the gain, so turning her down doesn't still her mouth.
+function routeThroughAnalyser(v) {
+  audioCtx ??= new AudioContext();
+  audioCtx.resume().catch(() => {});
+  const source = audioCtx.createMediaElementSource(v.audio);
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 1024;
+  const gain = audioCtx.createGain();
+  gain.gain.value = config.voiceVolume;
+  source.connect(analyser);
+  source.connect(gain);
+  gain.connect(audioCtx.destination);
+  Object.assign(v, { analyser, gain, samples: new Uint8Array(analyser.fftSize), nodes: [source, analyser, gain] });
+}
+
+/** 0..1 loudness of what she is saying right now, or null when she isn't speaking. */
+function voiceLevel() {
+  const v = voice;
+  if (!v?.analyser || v.audio.paused || v.audio.ended) return null;
+  v.analyser.getByteTimeDomainData(v.samples);
+  let sum = 0;
+  for (const s of v.samples) sum += ((s - 128) / 128) ** 2;
+  // Gate out the noise floor, then stretch ordinary speech (RMS ~0.05-0.2) across 0..1.
+  return Math.min(1, Math.max(0, (Math.sqrt(sum / v.samples.length) - 0.02) * 9));
+}
 
 function stopVoice() {
   if (!voice) return;
   const v = voice;
   voice = null;
   v.audio.pause();
+  v.nodes?.forEach((n) => n.disconnect());
   v.audio.removeAttribute("src");
   v.audio.load();
   if (v.url) URL.revokeObjectURL(v.url);
@@ -393,8 +443,8 @@ function onSpeakStart(event) {
 
   stopVoice();
   const audio = new Audio();
-  audio.volume = config.voiceVolume;
   const v = { id: event.id, audio, url: null, ms: null, sb: null, queue: [], ended: false, parts: [], mime: event.mime, started: false };
+  routeThroughAnalyser(v);
   voice = v;
 
   // The pose was set for a guess based on text length, which runs short for a
@@ -563,7 +613,7 @@ function buildPanel() {
   volume.value = config.voiceVolume;
   volume.oninput = () => {
     config.voiceVolume = Number(volume.value);
-    if (voice) voice.audio.volume = config.voiceVolume;
+    if (voice?.gain) voice.gain.gain.value = config.voiceVolume;
   };
 
   document.getElementById("hide-panel").onclick = () => window.shiro.setInteractive(false);
