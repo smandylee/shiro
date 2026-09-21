@@ -23,9 +23,9 @@ import { isWatching } from "./watch.js";
 // still knows little about the owner, what she'd like to know). Later, when the
 // owner has been away from the chat for a while, she looks at that list and
 // decides for herself whether now is a good moment — and if so, which one to
-// ask. There is no schedule, no daily limit and no quiet hours: reading the
-// clock is her job (she is told the time), and the owner can silence her
-// with mute_chatter.
+// ask. There is no schedule, no daily limit and no quiet hours — the owner
+// said night is fine, they will answer when they wake — and they can silence
+// her with mute_chatter.
 
 const MODEL = "gemini-3.7-flash";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
@@ -208,7 +208,8 @@ async function decide(
     `[혼자 있는 시간] 지금은 ${when(now.getTime())}야 (홍콩 시간). 주인님이 시로와 대화를 안 한 지 ${away} 됐어.\n` +
     `시로는 주인님에게 물어보고 싶은 게 아래 목록에 쌓여 있어. 지금이 물어보기 좋은 때인지는 시로가 스스로 판단해.\n\n` +
     `판단할 때 생각할 것:\n` +
-    `- 시각. 한밤중이나 이른 새벽이면 주인님이 자고 있거나 쉬는 중일 수 있으니, 정말 급하지 않으면 ask를 false로 한다. 낮이나 저녁이면 편하게 물어봐도 된다.\n` +
+    `- 시각은 말투를 맞출 때만 본다 (아침엔 아침 인사, 밤엔 밤 인사). 밤이나 새벽이라고 참지 않는다: 주인님이 그 시간에 깨어 계실 때가 많고, ` +
+    `자고 있으면 일어나서 답하면 되니까 밤에 물어봐도 된다는 게 주인님이 직접 한 말이다.\n` +
     `- 마지막 대화 분위기. 바쁘거나 힘들어 보였으면 지금은 참는 게 낫다. 물어보려던 일이 아직 안 일어났을 수도 있다 (시험 전인데 결과를 묻지 않는다).\n` +
     `- 목록 중 지금 물어보기 가장 자연스러운 것 하나. 오래돼서 김이 빠진 건 고르지 않는다.\n\n` +
     `물어본다면 message 는 시로의 말투로, 1~2줄, 대답하기 쉬운 질문으로. 맨 앞에 [emotion:happy] 같은 감정 태그를 붙인다. ` +
@@ -237,19 +238,24 @@ async function decide(
             ask: { type: Type.BOOLEAN },
             id: { type: Type.INTEGER },
             message: { type: Type.STRING },
+            // One short line on why: it goes in the log, so a "no" can be explained.
+            reason: { type: Type.STRING },
           },
-          required: ["ask"],
+          required: ["ask", "reason"],
         },
       },
     });
     track("chatter", res.usageMetadata);
 
-    const parsed = JSON.parse(res.text ?? "") as { ask?: boolean; id?: number; message?: string };
+    const parsed = JSON.parse(res.text ?? "") as { ask?: boolean; id?: number; message?: string; reason?: string };
+    console.log(`[chatter] ${parsed.ask === true ? "will ask" : "not now"}: ${String(parsed.reason ?? "").slice(0, 140)}`);
     if (parsed.ask !== true || typeof parsed.message !== "string" || !parsed.message.trim()) return null;
     if (typeof parsed.id !== "number" || !waiting.some((c) => c.id === parsed.id)) return null;
     return { id: parsed.id, message: parsed.message.trim() };
   } catch (err) {
     console.error("[chatter] deciding failed:", err);
+    // Nothing was decided, so don't sit out the whole reconsider interval: try again on the next tick.
+    setSetting("chatterCheckedAt", "0");
     return null;
   }
 }
