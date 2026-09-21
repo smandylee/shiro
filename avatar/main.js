@@ -37,10 +37,19 @@ function loadJson(file, fallback) {
 }
 
 const config = loadJson(CONFIG_PATH, {});
-// Wide enough for the padded canvas (1280 + 2x170 source px at the default
-// scale) so a drooping tail is never clipped by the window itself.
-const WIN_WIDTH = 600;
-const WIN_HEIGHT = 620;
+// The size she was last left at (wheel or slider) wins over config.json's, and
+// is kept in the same file as her position, which is not committed.
+const savedState = loadJson(STATE_PATH, null);
+if (savedState && Number.isFinite(savedState.scale) && savedState.scale > 0) config.scale = savedState.scale;
+
+// The window is her drawn size plus room around it for the speech bubble and the
+// control panel. These start at what fits the default scale (wide enough for the
+// padded canvas, so a drooping tail is never clipped) and follow her size from
+// then on: the page reports it as soon as it knows the sprite's dimensions.
+const WIN_MARGIN_X = 82;
+const WIN_MARGIN_TOP = 173;
+let winW = 600;
+let winH = 620;
 
 let win = null;
 let interactive = false;
@@ -48,18 +57,17 @@ let interactive = false;
 function defaultPosition() {
   const { workArea } = screen.getPrimaryDisplay();
   return {
-    x: workArea.x + workArea.width - WIN_WIDTH - 24,
-    y: workArea.y + workArea.height - WIN_HEIGHT - 24,
+    x: workArea.x + workArea.width - winW - 24,
+    y: workArea.y + workArea.height - winH - 24,
   };
 }
 
 function createWindow() {
-  const saved = loadJson(STATE_PATH, null);
-  const pos = saved && Number.isInteger(saved.x) ? saved : defaultPosition();
+  const pos = savedState && Number.isInteger(savedState.x) ? savedState : defaultPosition();
 
   win = new BrowserWindow({
-    width: WIN_WIDTH,
-    height: WIN_HEIGHT,
+    width: winW,
+    height: winH,
     x: pos.x,
     y: pos.y,
     transparent: true,
@@ -88,14 +96,63 @@ function createWindow() {
   win.setIgnoreMouseEvents(true, { forward: true });
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
 
-  win.on("moved", () => {
-    const [x, y] = win.getPosition();
-    try {
-      writeFileSync(STATE_PATH, JSON.stringify({ x, y }));
-    } catch (err) {
-      console.error("failed to save window position:", err.message);
-    }
-  });
+  win.on("moved", savePosition);
+}
+
+function savePosition() {
+  if (!win) return;
+  const [x, y] = win.getPosition();
+  try {
+    writeFileSync(STATE_PATH, JSON.stringify({ x, y, scale: config.scale }));
+  } catch (err) {
+    console.error("failed to save window position:", err.message);
+  }
+}
+
+/** Picks her up off a screen edge or a monitor that went away: keeps the window's centre on a display. */
+function keepOnScreen() {
+  if (!win) return;
+  const b = win.getBounds();
+  const centre = { x: b.x + Math.round(b.width / 2), y: b.y + Math.round(b.height / 2) };
+  const area = screen.getDisplayNearestPoint(centre).workArea;
+  const x = Math.min(Math.max(b.x, area.x - Math.round(b.width / 2)), area.x + area.width - Math.round(b.width / 2));
+  const y = Math.min(Math.max(b.y, area.y - Math.round(b.height / 2)), area.y + area.height - Math.round(b.height / 2));
+  if (x !== b.x || y !== b.y) win.setBounds({ x, y, width: winW, height: winH });
+}
+
+/* ---------- picking her up ---------- */
+
+// While the mouse button is held on her, the window follows the pointer. The
+// pointer is read here, from the screen, so it keeps working even when it moves
+// faster than the window can be redrawn.
+const DRAG_MAX_MS = 60_000; // a lost "button released" must never leave her stuck to the pointer
+let dragTimer = null;
+
+function startDrag() {
+  if (!win) return;
+  endDrag(false);
+  const start = screen.getCursorScreenPoint();
+  const [x0, y0] = win.getPosition();
+  const began = Date.now();
+  logLine("[drag] start");
+  dragTimer = setInterval(() => {
+    if (!win || Date.now() - began > DRAG_MAX_MS) return endDrag(true);
+    const c = screen.getCursorScreenPoint();
+    // setBounds, not setPosition: moving between monitors with different scaling
+    // can otherwise resize the window.
+    win.setBounds({ x: x0 + c.x - start.x, y: y0 + c.y - start.y, width: winW, height: winH });
+  }, 8);
+}
+
+function endDrag(save = true) {
+  if (!dragTimer) return;
+  clearInterval(dragTimer);
+  dragTimer = null;
+  if (save) {
+    keepOnScreen();
+    savePosition();
+    logLine("[drag] end");
+  }
 }
 
 function setInteractive(next) {
@@ -209,6 +266,7 @@ function setWatching(next) {
 
 app.whenReady().then(() => {
   createWindow();
+  keepOnScreen(); // a saved position on a monitor that is no longer there
 
   // Ctrl+Shift+S: let the owner grab, move, and configure her.
   globalShortcut.register("CommandOrControl+Shift+S", () => setInteractive(!interactive));
@@ -240,6 +298,31 @@ app.whenReady().then(() => {
   );
   ipcMain.on("quit", () => app.quit());
   ipcMain.on("set-interactive", (_e, value) => setInteractive(Boolean(value)));
+
+  // Picking her up: the page says when the pointer is on her (take the mouse),
+  // off her (let clicks through again), and when a drag starts and ends.
+  ipcMain.on("set-mouse-capture", (_e, capture) => {
+    if (!win || interactive) return; // with the panel up the window already takes the mouse
+    win.setIgnoreMouseEvents(!capture, { forward: true });
+  });
+  // Her size changed (wheel, slider, or the sprite's dimensions became known):
+  // the window grows or shrinks about her feet - the bottom centre stays put.
+  ipcMain.on("resize-window", (_e, size) => {
+    if (!win || !size) return;
+    const { width, height, scale } = size;
+    if (![width, height, scale].every(Number.isFinite) || width < 50 || height < 50 || width > 6000 || height > 6000) return;
+    const b = win.getBounds();
+    const centre = b.x + b.width / 2;
+    const bottom = b.y + b.height;
+    winW = Math.round(width) + WIN_MARGIN_X;
+    winH = Math.round(height) + WIN_MARGIN_TOP;
+    config.scale = scale;
+    win.setBounds({ x: Math.round(centre - winW / 2), y: bottom - winH, width: winW, height: winH });
+    keepOnScreen();
+    savePosition();
+  });
+  ipcMain.on("drag-start", () => startDrag());
+  ipcMain.on("drag-end", () => endDrag(true));
   ipcMain.on("set-watching", (_e, value) => setWatching(Boolean(value)));
 });
 

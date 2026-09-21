@@ -1,6 +1,7 @@
 import { poseFor, blendPose, EMOTION_POSES } from "./emotions.js";
 import { prepareTail, poseTail, tailBend, drawTail } from "./tail.js";
 import { startListening } from "./mic.js";
+import { setupDrag } from "./drag.js";
 
 const EMOTIONS = Object.keys(EMOTION_POSES);
 const TRANSITION_MS = 700;
@@ -720,10 +721,9 @@ function buildPanel() {
   }
 
   const scale = document.getElementById("scale");
+  scale.max = "1";
   scale.value = config.scale;
-  scale.oninput = () => {
-    config.scale = Number(scale.value);
-  };
+  scale.oninput = () => setScale(Number(scale.value));
 
   const pivots = document.getElementById("pivots");
   pivots.onchange = () => {
@@ -758,6 +758,33 @@ function buildPanel() {
   document.getElementById("quit").onclick = () => window.shiro.quit();
 }
 
+/* ---------- her size ---------- */
+
+const SCALE_MIN = 0.15;
+const WHEEL_SENSITIVITY = 0.0012; // one notch of the wheel is roughly a tenth larger or smaller
+
+/** Tells the window how big she is now, so it grows and shrinks with her (about her feet). */
+function syncWindowSize() {
+  if (!sheet) return;
+  window.shiro.resizeWindow({
+    width: (sheet.canvas.width + PAD.x * 2) * config.scale,
+    height: (sheet.canvas.height + PAD.top + PAD.bottom) * config.scale,
+    scale: config.scale,
+  });
+}
+
+function setScale(next) {
+  if (!sheet || !Number.isFinite(next)) return;
+  // As tall as the screen allows, leaving room for the bubble above her.
+  const max = Math.max(SCALE_MIN, (window.screen.availHeight - 200) / (sheet.canvas.height + PAD.top + PAD.bottom));
+  const scale = Math.min(Math.max(next, SCALE_MIN), max);
+  if (Math.abs(scale - config.scale) < 0.001) return;
+  config.scale = scale;
+  const slider = document.getElementById("scale");
+  if (slider) slider.value = scale;
+  syncWindowSize();
+}
+
 /* ---------- boot ---------- */
 
 async function main() {
@@ -767,6 +794,8 @@ async function main() {
   window.shiro.onInteractive((on) => panel.classList.toggle("hidden", !on));
   setupWatch();
   setupMic();
+  // The wheel over her makes her larger or smaller.
+  setupDrag({ canvas, ctx, onWheel: (deltaY) => setScale(config.scale * Math.exp(-deltaY * WHEEL_SENSITIVITY)) });
 
   try {
     sheet = await loadSheet();
@@ -777,6 +806,9 @@ async function main() {
     setStatus(`이미지를 못 불러왔어: ${err.message}`, "bad");
     return;
   }
+
+  // The window is sized for the default until now; make it fit the size she was left at.
+  syncWindowSize();
 
   setEmotion("neutral");
   requestAnimationFrame(draw);

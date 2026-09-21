@@ -9,5 +9,9 @@ contextBridge.exposeInMainWorld("shiro", {
   setWatching: (value) => ipcRenderer.send("set-watching", value),
   onInteractive: (cb) => ipcRenderer.on("interactive", (_e, value) => cb(value)),
   setInteractive: (value) => ipcRenderer.send("set-interactive", value),
+  setMouseCapture: (value) => ipcRenderer.send("set-mouse-capture", Boolean(value)),
+  resizeWindow: (size) => ipcRenderer.send("resize-window", size),
+  dragStart: () => ipcRenderer.send("drag-start"),
+  dragEnd: () => ipcRenderer.send("drag-end"),
   quit: () => ipcRenderer.send("quit"),
 });
