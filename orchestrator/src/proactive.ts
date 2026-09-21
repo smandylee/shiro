@@ -9,6 +9,7 @@ import { listUpcomingEventsRaw } from "./google/calendar.js";
 import { countRecentUnread, RECENT_UNREAD_CAP } from "./google/gmail.js";
 import { canvasEnabled, describeItem, listUpcomingCanvas, type CanvasItem } from "./canvas/feed.js";
 import { sayAndSpeak } from "./avatar/speak.js";
+import { maybeChat } from "./chatter.js";
 
 // Shiro speaking first: a morning briefing and nudges for overdue to-dos. Both
 // go out as a Discord DM and, when the avatar is up, in her voice. Nothing here
@@ -68,6 +69,8 @@ export async function checkProactive(getChannel: GetChannel): Promise<void> {
     if (await maybeBrief(now, channelId, channel)) return;
     await maybeNudge(now, channelId, channel);
     await maybeCanvasNudge(now, channelId, channel);
+    // Last, so a nudge sent this tick counts as recent talk and she holds off.
+    await maybeChat(now, channelId, channel, isQuiet(localHour(now)));
   } finally {
     running = false;
   }

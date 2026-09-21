@@ -508,6 +508,24 @@ function onSpeakEnd(event) {
   startPlayback(v);
 }
 
+// A streamed reply starts its "say" before the words exist and fills them in as
+// they are written: each caption is everything said so far.
+function onCaption(event) {
+  if (event.id !== currentSayId) return;
+
+  const holdMs = Math.min(12000, Math.max(4000, event.text.length * 90));
+  // Keep the pose up for as long as the text so far needs; once the voice
+  // starts it takes over the timing.
+  releaseAt = Math.max(releaseAt, performance.now() + holdMs);
+
+  if (config.showBubble) {
+    bubble.textContent = event.text;
+    bubble.classList.remove("hidden");
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(() => bubble.classList.add("hidden"), holdMs);
+  }
+}
+
 function onSay(event) {
   currentSayId = event.id;
   stopVoice();
@@ -525,6 +543,40 @@ function onSay(event) {
 }
 
 let backoff = 1000;
+// The live, authenticated socket (null while reconnecting), for things the
+// avatar sends on its own rather than in reply to a message.
+let socket = null;
+
+/* ---------- watch mode ---------- */
+
+const watchBadge = document.getElementById("watch-badge");
+let watching = false;
+
+function sendWatchState() {
+  if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "watch_state", on: watching }));
+}
+
+function setupWatch() {
+  window.shiro.onWatch(({ on, denied }) => {
+    if (denied) {
+      watchBadge.textContent = "화면 보기가 꺼져 있어 (config.json allowScreenCapture)";
+      watchBadge.classList.remove("hidden");
+      setTimeout(() => {
+        if (!watching) watchBadge.classList.add("hidden");
+      }, 4000);
+      return;
+    }
+    watching = on;
+    watchBadge.textContent = "👀 같이 보는 중 · Ctrl+Shift+W";
+    watchBadge.classList.toggle("hidden", !on);
+    sendWatchState();
+  });
+  window.shiro.onWatchFrame((frame) => {
+    if (watching && socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "watch_frame", ...frame }));
+    }
+  });
+}
 
 function connect() {
   if (!config.bridgeToken) {
@@ -545,19 +597,31 @@ function connect() {
     }
     if (event.type === "hello") {
       backoff = 1000;
+      socket = ws;
       setStatus("시로와 연결됨", "ok");
+      // A reconnect starts a fresh session on the other end.
+      if (watching) sendWatchState();
     } else if (event.type === "say") {
       onSay(event);
+    } else if (event.type === "caption") {
+      onCaption(event);
     } else if (event.type === "speak_start") {
       onSpeakStart(event);
     } else if (event.type === "speak_chunk") {
       onSpeakChunk(event);
     } else if (event.type === "speak_end") {
       onSpeakEnd(event);
+    } else if (event.type === "capture_request") {
+      // The main process decides whether screen capture is allowed at all.
+      window.shiro
+        .captureScreen()
+        .catch((err) => ({ error: `화면 캡처 실패: ${err.message}` }))
+        .then((result) => ws.send(JSON.stringify({ type: "capture_result", id: event.id, ...result })));
     }
   };
 
   ws.onclose = (e) => {
+    if (socket === ws) socket = null;
     setStatus(e.code === 4003 ? "토큰이 틀렸어" : "연결 끊김 · 재시도 중", "bad");
     setTimeout(connect, backoff);
     backoff = Math.min(RECONNECT_MAX_MS, backoff * 1.7);
@@ -627,6 +691,7 @@ async function main() {
   buildPanel();
 
   window.shiro.onInteractive((on) => panel.classList.toggle("hidden", !on));
+  setupWatch();
 
   try {
     sheet = await loadSheet();

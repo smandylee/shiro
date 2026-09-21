@@ -54,9 +54,12 @@ export async function synthesizeStream(
   const tag = process.env.ELEVENLABS_EMOTION_TAGS === "off" ? undefined : TAGS[emotion];
 
   try {
-    const res = await fetch(
-      `${API_URL}/${process.env.ELEVENLABS_VOICE_ID}/stream?output_format=mp3_44100_128`,
-      {
+    let res: Response;
+    // A reply is voiced a line at a time, several lines at once, which can brush
+    // against the plan's concurrent-request limit (429). That clears within a
+    // moment, so wait it out rather than losing a line of her voice.
+    for (let attempt = 0; ; attempt++) {
+      res = await fetch(`${API_URL}/${process.env.ELEVENLABS_VOICE_ID}/stream?output_format=mp3_44100_128`, {
         method: "POST",
         headers: {
           "xi-api-key": process.env.ELEVENLABS_API_KEY!,
@@ -64,8 +67,11 @@ export async function synthesizeStream(
         },
         body: JSON.stringify({ text: tag ? `${tag} ${spoken}` : spoken, model_id: MODEL }),
         signal: AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]),
-      }
-    );
+      });
+      if (res.status !== 429 || attempt >= 2) break;
+      await res.body?.cancel();
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
 
     if (!res.ok || !res.body) {
       const hint =

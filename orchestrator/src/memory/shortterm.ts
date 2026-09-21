@@ -23,6 +23,29 @@ export function addTurn(channelId: string, role: "user" | "model", text: string)
   pruneChannel.run(channelId, channelId);
 }
 
+const selectLast = db.prepare(
+  "SELECT role, text, created_at FROM turns WHERE channel_id = ? ORDER BY id DESC LIMIT 1"
+);
+
+/** The newest turn in a channel, with when it was said — null for a fresh channel. */
+export function getLastTurn(channelId: string): { role: "user" | "model"; text: string; at: number } | null {
+  const row = selectLast.get(channelId) as { role: "user" | "model"; text: string; created_at: number } | undefined;
+  return row ? { role: row.role, text: row.text, at: row.created_at } : null;
+}
+
+const selectRecentTimed = db.prepare(
+  "SELECT role, text, created_at FROM turns WHERE channel_id = ? ORDER BY id DESC LIMIT ?"
+);
+
+/** Like getRecentHistory, with when each turn was said (epoch ms), oldest first. */
+export function getRecentTurnsWithTime(
+  channelId: string,
+  limit: number
+): { role: "user" | "model"; text: string; at: number }[] {
+  const rows = selectRecentTimed.all(channelId, limit) as { role: "user" | "model"; text: string; created_at: number }[];
+  return rows.reverse().map((r) => ({ role: r.role, text: r.text, at: r.created_at }));
+}
+
 export function getRecentHistory(channelId: string, limit: number): ChatTurn[] {
   const rows = selectRecent.all(channelId, limit) as { role: "user" | "model"; text: string }[];
   return rows.reverse();

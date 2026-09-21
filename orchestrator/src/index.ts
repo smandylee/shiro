@@ -2,12 +2,13 @@ import { Client, GatewayIntentBits, Partials, Events } from "discord.js";
 import { chat, type MediaPart } from "./llm/gemini.js";
 import { parseEmotionTag, EMOTIONS } from "./persona.js";
 import { startAvatarBridge } from "./avatar/bridge.js";
-import { sayAndSpeak } from "./avatar/speak.js";
+import { StreamedReply } from "./reply.js";
 import { addTurn, getRecentHistory } from "./memory/shortterm.js";
 import { remember, recall } from "./memory/longterm.js";
 import { getSetting, setSetting } from "./memory/settings.js";
 import { checkReminders } from "./reminders.js";
 import { checkProactive } from "./proactive.js";
+import { startWatchCommentary } from "./watch.js";
 import { setDiscordClient } from "./discord/actions.js";
 import { getContact } from "./memory/contacts.js";
 
@@ -174,6 +175,8 @@ client.once(Events.ClientReady, async (c) => {
     return channel?.isSendable() ? channel : null;
   };
 
+  startWatchCommentary(getChannel);
+
   const runReminderCheck = () => {
     checkReminders(getChannel).catch((err) => {
       console.error("[reminders] check failed:", err);
@@ -233,6 +236,11 @@ client.on(Events.MessageCreate, (message) => {
     const contact = getContact(message.author.id);
     const speakerName = isOwner ? "주인님" : (contact?.name ?? message.author.username);
 
+    // The reply is shown and voiced as the model writes it: her expression the
+    // moment the emotion tag is complete, then each line as a bubble and in her
+    // voice as soon as it is finished, instead of after the whole answer.
+    const reply = new StreamedReply((line) => sendAsChatBubbles(message.channel, line));
+
     let result: { text: string; touchedPersonalData: boolean };
     try {
       result = await chat(history, text_, {
@@ -242,16 +250,22 @@ client.on(Events.MessageCreate, (message) => {
         isOwner,
         senderId: message.author.id,
         contactName: contact?.name,
+        onText: (delta) => reply.push(delta),
       });
     } catch (err) {
       console.error("gemini chat failed:", err);
+      // Lines already on their way finish first, so the apology comes after them.
+      await reply.abort();
       await message.channel.send("(어... 지금 머리가 잘 안 돌아가네. 잠깐 후에 다시 말 걸어줄래?)");
       return;
     }
 
     const tChat = Date.now();
+    await reply.finish();
+    const ms = (v: number | null) => (v === null ? "-" : `${v}ms`);
     console.log(
-      `  -> timing: typing=${tTyping - t0}ms attach=${tFiles - tTyping}ms recall=${tRecall - tFiles}ms chat=${tChat - tRecall}ms total=${tChat - t0}ms`
+      `  -> timing: typing=${tTyping - t0}ms attach=${tFiles - tTyping}ms recall=${tRecall - tFiles}ms chat=${tChat - tRecall}ms ` +
+        `(pose ${ms(reply.timings.pose)}, first line ${ms(reply.timings.firstLine)} after the model started) total=${Date.now() - t0}ms`
     );
 
     const raw = result.text;
@@ -264,9 +278,6 @@ client.on(Events.MessageCreate, (message) => {
       // Store the emotion-tag-stripped reply — the tag is noise in recall.
       void remember(speakerName, text_, text);
     }
-
-    sayAndSpeak(emotion, text);
-    await sendAsChatBubbles(message.channel, text);
   });
 });
 

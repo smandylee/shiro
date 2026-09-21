@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, screen } = require("electron");
+const { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, screen } = require("electron");
 const { readFileSync, existsSync, writeFileSync } = require("node:fs");
 const path = require("node:path");
 
@@ -82,16 +82,124 @@ function setInteractive(next) {
   win.webContents.send("interactive", interactive);
 }
 
+// One picture of the screen Shiro is on, only when the owner asked her to look
+// (the orchestrator sends the request) and only if they switched it on in
+// config.json. Nothing is kept: the picture goes back over the socket and no
+// further.
+const CAPTURE_MAX_WIDTH = 1600;
+
+/** The screen Shiro is on, as an image no wider than `maxWidth`, or null. */
+async function grabScreen(maxWidth) {
+  const display = screen.getDisplayMatching(win ? win.getBounds() : screen.getPrimaryDisplay().bounds);
+  const scale = Math.min(1, maxWidth / display.size.width);
+  const sources = await desktopCapturer.getSources({
+    types: ["screen"],
+    thumbnailSize: {
+      width: Math.round(display.size.width * scale),
+      height: Math.round(display.size.height * scale),
+    },
+  });
+  const source = sources.find((s) => s.display_id === String(display.id)) ?? sources[0];
+  return source && !source.thumbnail.isEmpty() ? source.thumbnail : null;
+}
+
+async function captureScreen() {
+  if (config.allowScreenCapture !== true) {
+    return { error: "화면 보기가 꺼져 있어 (아바타 config.json 의 allowScreenCapture)" };
+  }
+  const image = await grabScreen(CAPTURE_MAX_WIDTH);
+  if (!image) return { error: "화면을 캡처하지 못했어" };
+  return { mime: "image/jpeg", data: image.toJPEG(80).toString("base64") };
+}
+
+/* ---------- watch mode (Ctrl+Shift+W): she watches the owner play ---------- */
+
+// The screen is looked at here, on the owner's PC, every few seconds; a frame
+// only leaves the machine when it has visibly changed (and the orchestrator
+// throttles her remarks further). Off by default, off again on its own after
+// a few hours, and the avatar shows a badge the whole time it's on.
+const WATCH_TICK_MS = 5_000;
+const WATCH_MIN_SEND_MS = 10_000;
+const WATCH_FORCE_SEND_MS = 90_000;
+const WATCH_MAX_MS = 3 * 60 * 60 * 1000;
+const WATCH_MAX_WIDTH = 1280;
+// Mean per-pixel brightness difference (0-255) that counts as "changed".
+const WATCH_CHANGE_THRESHOLD = 6;
+
+let watching = false;
+let watchTimer = null;
+let watchStartedAt = 0;
+let lastSent = { at: 0, signature: null };
+
+/** A tiny grayscale fingerprint of the frame, for telling whether it changed. */
+function signature(image) {
+  const small = image.resize({ width: 48, quality: "good" });
+  const bgra = small.toBitmap();
+  const out = new Uint8Array(bgra.length / 4);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = (bgra[i * 4] * 0.11 + bgra[i * 4 + 1] * 0.59 + bgra[i * 4 + 2] * 0.3) | 0;
+  }
+  return out;
+}
+
+function difference(a, b) {
+  if (!a || !b || a.length !== b.length) return Infinity;
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
+  return sum / a.length;
+}
+
+async function watchTick() {
+  if (!watching || !win) return;
+  if (Date.now() - watchStartedAt > WATCH_MAX_MS) return setWatching(false);
+  const now = Date.now();
+  if (now - lastSent.at < WATCH_MIN_SEND_MS) return;
+
+  const image = await grabScreen(WATCH_MAX_WIDTH);
+  if (!image || !watching) return;
+  const sig = signature(image);
+  const changed = difference(sig, lastSent.signature) >= WATCH_CHANGE_THRESHOLD;
+  if (!changed && now - lastSent.at < WATCH_FORCE_SEND_MS) return;
+
+  lastSent = { at: now, signature: sig };
+  win.webContents.send("watch-frame", { mime: "image/jpeg", data: image.toJPEG(70).toString("base64") });
+}
+
+function setWatching(next) {
+  if (!win) return;
+  if (next && config.allowScreenCapture !== true) {
+    win.webContents.send("watch", { on: false, denied: true });
+    return;
+  }
+  watching = next;
+  clearInterval(watchTimer);
+  watchTimer = null;
+  if (watching) {
+    watchStartedAt = Date.now();
+    lastSent = { at: 0, signature: null };
+    watchTimer = setInterval(() => {
+      watchTick().catch((err) => console.error("watch capture failed:", err.message));
+    }, WATCH_TICK_MS);
+  }
+  win.webContents.send("watch", { on: watching });
+}
+
 app.whenReady().then(() => {
   createWindow();
 
   // Ctrl+Shift+S: let the owner grab, move, and configure her.
   globalShortcut.register("CommandOrControl+Shift+S", () => setInteractive(!interactive));
   globalShortcut.register("CommandOrControl+Shift+Q", () => app.quit());
+  // Ctrl+Shift+W: she watches the screen with the owner (and stops).
+  globalShortcut.register("CommandOrControl+Shift+W", () => setWatching(!watching));
 
   ipcMain.handle("get-config", () => config);
+  ipcMain.handle("capture-screen", () =>
+    captureScreen().catch((err) => ({ error: `화면 캡처 실패: ${err.message}` }))
+  );
   ipcMain.on("quit", () => app.quit());
   ipcMain.on("set-interactive", (_e, value) => setInteractive(Boolean(value)));
+  ipcMain.on("set-watching", (_e, value) => setWatching(Boolean(value)));
 });
 
 app.on("will-quit", () => globalShortcut.unregisterAll());

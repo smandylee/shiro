@@ -10,11 +10,17 @@ import type { Emotion } from "../persona.js";
 export type AvatarEvent =
   | { type: "hello"; emotions: readonly string[] }
   | { type: "say"; id: string; emotion: Emotion; text: string }
+  // The text of a "say" that is still being written: everything said so far.
+  // A streamed reply starts its "say" before the words exist, and fills it in.
+  | { type: "caption"; id: string; text: string }
   // The voice for a "say", streamed as it is synthesized: start, then base64
   // audio chunks in order, then end. All carry the id of the "say" they belong to.
   | { type: "speak_start"; id: string; mime: string }
   | { type: "speak_chunk"; id: string; data: string }
-  | { type: "speak_end"; id: string };
+  | { type: "speak_end"; id: string }
+  // Asks the avatar's PC for a picture of the owner's screen. The answer comes
+  // back as a `capture_result` carrying the same id.
+  | { type: "capture_request"; id: string };
 
 type Client = {
   socket: WebSocket;
@@ -49,6 +55,108 @@ export function broadcast(event: AvatarEvent): void {
   }
 }
 
+export type ScreenCapture = { mime: string; data: string };
+
+type PendingCapture = {
+  client: Client;
+  resolve: (result: ScreenCapture) => void;
+  reject: (err: Error) => void;
+  timer: NodeJS.Timeout;
+};
+
+const pendingCaptures = new Map<string, PendingCapture>();
+const CAPTURE_TIMEOUT_MS = 10_000;
+// A screenshot arrives as base64 in one frame; this keeps a misbehaving client
+// from feeding the model (and our memory) something enormous.
+const MAX_CAPTURE_BASE64 = 8 * 1024 * 1024;
+const CAPTURE_MIMES = new Set(["image/jpeg", "image/png"]);
+
+/**
+ * Asks the connected avatar for one picture of the owner's screen. Rejects
+ * with a reason that reads well to the owner when nobody is connected, the
+ * avatar has screen capture switched off, or it doesn't answer in time.
+ */
+export function requestScreenCapture(): Promise<ScreenCapture> {
+  let target: Client | undefined;
+  for (const c of clients) {
+    if (c.authed && c.socket.readyState === WebSocket.OPEN) target = c;
+  }
+  if (!target) return Promise.reject(new Error("아바타가 켜져 있지 않아서 화면을 볼 수 없어"));
+  const client = target;
+
+  const id = randomUUID();
+  return new Promise<ScreenCapture>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pendingCaptures.delete(id);
+      reject(new Error("화면 캡처 응답이 없어"));
+    }, CAPTURE_TIMEOUT_MS);
+    pendingCaptures.set(id, { client, resolve, reject, timer });
+    send(client, { type: "capture_request", id });
+  });
+}
+
+/* ---------- watch mode: the avatar streams changed frames while the owner has it on ---------- */
+
+export type WatchListener = {
+  onState: (on: boolean) => void;
+  onFrame: (frame: ScreenCapture) => void;
+};
+
+let watchListener: WatchListener | null = null;
+// The client that turned watch mode on; only its frames count, and it
+// disconnecting ends the session.
+let watcher: Client | null = null;
+
+export function setWatchListener(listener: WatchListener): void {
+  watchListener = listener;
+}
+
+function isValidImage(mime: unknown, data: unknown): data is string {
+  return (
+    typeof mime === "string" &&
+    CAPTURE_MIMES.has(mime) &&
+    typeof data === "string" &&
+    data.length > 0 &&
+    data.length <= MAX_CAPTURE_BASE64
+  );
+}
+
+function onWatchMessage(client: Client, msg: { type?: string; on?: unknown; mime?: unknown; data?: unknown }): void {
+  if (msg.type === "watch_state") {
+    const on = msg.on === true;
+    if (on) watcher = client;
+    else if (watcher === client) watcher = null;
+    else return;
+    watchListener?.onState(on);
+  } else if (msg.type === "watch_frame") {
+    if (watcher !== client || !isValidImage(msg.mime, msg.data)) return;
+    watchListener?.onFrame({ mime: msg.mime as string, data: msg.data });
+  }
+}
+
+function onCaptureResult(client: Client, msg: { id?: unknown; mime?: unknown; data?: unknown; error?: unknown }): void {
+  if (typeof msg.id !== "string") return;
+  const pending = pendingCaptures.get(msg.id);
+  // Only the client that was asked may answer, and only once.
+  if (!pending || pending.client !== client) return;
+  pendingCaptures.delete(msg.id);
+  clearTimeout(pending.timer);
+
+  if (typeof msg.error === "string") {
+    pending.reject(new Error(msg.error));
+  } else if (
+    typeof msg.mime !== "string" ||
+    !CAPTURE_MIMES.has(msg.mime) ||
+    typeof msg.data !== "string" ||
+    msg.data.length === 0 ||
+    msg.data.length > MAX_CAPTURE_BASE64
+  ) {
+    pending.reject(new Error("받은 화면 이미지가 올바르지 않아"));
+  } else {
+    pending.resolve({ mime: msg.mime, data: msg.data });
+  }
+}
+
 export function say(emotion: Emotion, text: string): string {
   const id = randomUUID();
   broadcast({ type: "say", id, emotion, text });
@@ -67,7 +175,8 @@ export function startAvatarBridge(emotions: readonly string[]): void {
   // rather than binding to every interface.
   const host = process.env.AVATAR_BRIDGE_HOST ?? "127.0.0.1";
 
-  server = new WebSocketServer({ host, port });
+  // Room for one screenshot frame (MAX_CAPTURE_BASE64 plus the JSON around it).
+  server = new WebSocketServer({ host, port, maxPayload: MAX_CAPTURE_BASE64 + 1024 });
 
   server.on("connection", (socket) => {
     const client: Client = { socket, authed: false, alive: true };
@@ -83,12 +192,18 @@ export function startAvatarBridge(emotions: readonly string[]): void {
     });
 
     socket.on("message", (data) => {
-      if (client.authed) return; // Nothing to say to us once connected.
       let parsed: unknown;
       try {
         parsed = JSON.parse(data.toString());
       } catch {
         socket.close(4002, "bad json");
+        return;
+      }
+      if (client.authed) {
+        // The only thing a connected avatar says to us is an answer to a request.
+        const reply = parsed as { type?: string; id?: unknown; on?: unknown; mime?: unknown; data?: unknown; error?: unknown };
+        if (reply.type === "capture_result") onCaptureResult(client, reply);
+        else onWatchMessage(client, reply);
         return;
       }
       const msg = parsed as { type?: string; token?: string };
@@ -105,6 +220,16 @@ export function startAvatarBridge(emotions: readonly string[]): void {
     socket.on("close", () => {
       clearTimeout(authTimer);
       clients.delete(client);
+      for (const [id, pending] of pendingCaptures) {
+        if (pending.client !== client) continue;
+        pendingCaptures.delete(id);
+        clearTimeout(pending.timer);
+        pending.reject(new Error("화면을 받기 전에 아바타 연결이 끊겼어"));
+      }
+      if (watcher === client) {
+        watcher = null;
+        watchListener?.onState(false);
+      }
       console.log("[avatar] client disconnected");
     });
 
