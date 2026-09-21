@@ -7,6 +7,7 @@ import { addTurn, getRecentHistory } from "./memory/shortterm.js";
 import { remember, recall } from "./memory/longterm.js";
 import { getSetting, setSetting } from "./memory/settings.js";
 import { checkReminders } from "./reminders.js";
+import { checkProactive } from "./proactive.js";
 import { setDiscordClient } from "./discord/actions.js";
 import { getContact } from "./memory/contacts.js";
 
@@ -176,6 +177,9 @@ client.once(Events.ClientReady, async (c) => {
   const runReminderCheck = () => {
     checkReminders(getChannel).catch((err) => {
       console.error("[reminders] check failed:", err);
+    });
+    checkProactive(getChannel).catch((err) => {
+      console.error("[proactive] check failed:", err);
     });
   };
 

@@ -118,6 +118,23 @@ export async function listUnreadEmails(maxResults = 10): Promise<string> {
   return `안 읽은 메일 ${messages.length}개 (본문을 보려면 id를 read_email에 넘겨):\n${summaries.join("\n")}`;
 }
 
+export const RECENT_UNREAD_CAP = 100;
+
+/**
+ * How many unread inbox messages arrived in the last `days` days, capped at
+ * RECENT_UNREAD_CAP. Ids only — no message content. The whole-inbox unread
+ * count isn't useful here: this mailbox has tens of thousands, so it never changes.
+ */
+export async function countRecentUnread(days = 1): Promise<number> {
+  const gmail = google.gmail({ version: "v1", auth: getAuthedClient() });
+  const list = await gmail.users.messages.list({
+    userId: "me",
+    q: `in:inbox is:unread newer_than:${days}d`,
+    maxResults: RECENT_UNREAD_CAP,
+  });
+  return list.data.messages?.length ?? 0;
+}
+
 export async function searchEmails(query: string, maxResults = 10): Promise<string> {
   const gmail = google.gmail({ version: "v1", auth: getAuthedClient() });
 
