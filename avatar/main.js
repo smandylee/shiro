@@ -194,9 +194,10 @@ app.whenReady().then(() => {
   globalShortcut.register("CommandOrControl+Shift+W", () => setWatching(!watching));
 
   // Talking to her: the first press starts listening, the next one (or a pause
-  // in speech) sends it. Ctrl+Alt+M by default — Ctrl+Shift+V would swallow
+  // in speech) sends it. Ctrl+Alt+V by default (Ctrl+Alt+M was already taken on
+  // the owner's PC; `micHotkey` in config.json overrides it) — Ctrl+Shift+V would swallow
   // "paste as plain text" in every other app. Off unless config.json allows it.
-  const micKey = typeof config.micHotkey === "string" && config.micHotkey ? config.micHotkey : "CommandOrControl+Alt+M";
+  const micKey = typeof config.micHotkey === "string" && config.micHotkey ? config.micHotkey : "CommandOrControl+Alt+V";
   if (!globalShortcut.register(micKey, () => {
     if (!win) return;
     win.webContents.send("mic", config.allowMicrophone === true ? { toggle: true } : { denied: true });

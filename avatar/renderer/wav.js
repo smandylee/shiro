@@ -12,21 +12,28 @@ export function rms(samples) {
 const FRAME = 480; // 30 ms at 16 kHz
 const HOP = 320; // 20 ms
 const ACTIVE_RMS = 0.008;
-const MIN_LAG_RATIO = 1 / 400; // pitch up to 400 Hz
-const MAX_LAG_RATIO = 1 / 80; // pitch down to 80 Hz
-const VOICED_PERIODICITY = 0.5;
+const MIN_ACTIVE_FRAMES = 12; // about a quarter second above the room's floor
+const MIN_CONTRAST = 2.5;
 
 /**
- * Whether recorded audio is a person speaking, as opposed to loud noise. A
- * language model given a fan, keyboard clicks or a hum will happily "hear" a
- * sentence in it, so that is ruled out before anything is sent.
+ * Whether a recording holds an utterance, as opposed to a steady noise that
+ * merely stays loud. A person speaking is much louder than the room around it
+ * and then stops: on a real headset microphone speech measured 0.05-0.09 against
+ * a floor of 0.003, twenty times louder. A fan, a hum or white noise has no such
+ * contrast - it is as loud at the start as at the end.
  *
- * Speech is voiced: its sound repeats at a pitch (80-400 Hz) that keeps
- * changing, and its loudness rises and falls with the syllables. A hum repeats
- * but never changes; a fan or white noise doesn't repeat at all; clicks are
- * over in a moment.
+ * This is deliberately not a pitch detector. Tried first, it turned away real
+ * speech: after the microphone's own noise suppression, a voice showed almost no
+ * clear pitch. Sounds that do have contrast but aren't speech (a keyboard, a
+ * chime) are left to the server, which asks a model whether a person is talking
+ * before anything she says is let out.
  */
 export function looksLikeSpeech(blocks, sampleRate) {
+  return speechStats(blocks, sampleRate).speech;
+}
+
+/** The numbers behind looksLikeSpeech, for finding out why a recording was turned away. */
+export function speechStats(blocks, _sampleRate) {
   let length = 0;
   for (const b of blocks) length += b.length;
   const x = new Float32Array(length);
@@ -36,47 +43,31 @@ export function looksLikeSpeech(blocks, sampleRate) {
     at += b.length;
   }
 
-  const minLag = Math.max(2, Math.floor(sampleRate * MIN_LAG_RATIO));
-  const maxLag = Math.floor(sampleRate * MAX_LAG_RATIO);
   const energies = [];
-  const pitches = [];
-
-  for (let start = 0; start + FRAME + maxLag <= x.length; start += HOP) {
-    const frame = x.subarray(start, start + FRAME);
-    const e = rms(frame);
-    if (e < ACTIVE_RMS) continue;
-    energies.push(e);
-
-    let best = 0;
-    let bestLag = 0;
-    for (let lag = minLag; lag <= maxLag; lag++) {
-      let cross = 0;
-      let a = 0;
-      let b = 0;
-      for (let i = 0; i < FRAME; i++) {
-        const p = x[start + i];
-        const q = x[start + i + lag];
-        cross += p * q;
-        a += p * p;
-        b += q * q;
-      }
-      const r = cross / Math.sqrt(a * b + 1e-12);
-      if (r > best) {
-        best = r;
-        bestLag = lag;
-      }
-    }
-    if (best > VOICED_PERIODICITY) pitches.push(sampleRate / bestLag);
+  for (let start = 0; start + FRAME <= x.length; start += HOP) {
+    energies.push(rms(x.subarray(start, start + FRAME)));
+  }
+  if (energies.length === 0) {
+    return { frames: 0, activeFrames: 0, floor: 0, loud: 0, contrast: 0, speech: false };
   }
 
-  if (energies.length === 0 || pitches.length < 12) return false; // under a quarter second of voice
-  if (pitches.length / energies.length < 0.25) return false; // mostly not voiced: noise, clicks
+  const sorted = [...energies].sort((a, b) => a - b);
+  // The room's floor: what it is like most of the time it isn't being spoken over.
+  const floor = sorted[Math.floor(0.1 * (sorted.length - 1))];
+  // How loud the loudest stretch is (its 12 loudest frames, so a short utterance still counts).
+  const top = sorted.slice(-MIN_ACTIVE_FRAMES);
+  const loud = top.reduce((s, v) => s + v, 0) / top.length;
+  const activeFrames = energies.filter((e) => e >= ACTIVE_RMS).length;
+  const contrast = loud / Math.max(floor, 1e-4);
 
-  const mean = (v) => v.reduce((s, n) => s + n, 0) / v.length;
-  const stdev = (v) => Math.sqrt(mean(v.map((n) => (n - mean(v)) ** 2)));
-  const pitchMoves = stdev(pitches) >= 4; // Hz: a hum stays put
-  const loudnessMoves = stdev(energies) / mean(energies) >= 0.6; // syllables rise and fall
-  return pitchMoves || loudnessMoves;
+  return {
+    frames: energies.length,
+    activeFrames,
+    floor,
+    loud,
+    contrast,
+    speech: activeFrames >= MIN_ACTIVE_FRAMES && contrast >= MIN_CONTRAST,
+  };
 }
 
 /** Joins recorded blocks (Float32Array, -1..1) into a 16-bit mono WAV file. */

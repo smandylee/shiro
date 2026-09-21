@@ -1,4 +1,4 @@
-import { rms, encodeWav, looksLikeSpeech, toBase64 } from "./wav.js";
+import { rms, encodeWav, speechStats, toBase64 } from "./wav.js";
 
 // Listens to the owner through the microphone until they finish speaking. It
 // only runs between the owner pressing the hotkey and the utterance ending;
@@ -61,8 +61,13 @@ export async function startListening({ onDone }) {
     finished = true;
     release();
     if (speechMs < MIN_SPEECH_MS) return onDone(null, reason === "no-speech" ? "no-speech" : "short");
-    // Loud, but is it a person? A fan or keyboard must not be sent as if it were words.
-    if (!looksLikeSpeech(blocks, rate)) return onDone(null, "noise");
+    // Loud, but is it an utterance? A steady fan or hum must not be sent as if it were words.
+    const stats = speechStats(blocks, rate);
+    console.log(
+      `[mic] recorded ${(totalMs / 1000).toFixed(1)}s (${reason}): floor ${stats.floor.toFixed(4)}, loud ${stats.loud.toFixed(4)}, ` +
+        `contrast ${stats.contrast.toFixed(1)}x -> ${stats.speech ? "sent" : "turned away as noise"}`
+    );
+    if (!stats.speech) return onDone(null, "noise");
     onDone({ mime: "audio/wav", data: toBase64(encodeWav(blocks, rate)) }, reason);
   }
 
