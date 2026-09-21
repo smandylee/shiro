@@ -1,7 +1,8 @@
 import { Client, GatewayIntentBits, Partials, Events } from "discord.js";
 import { chat, type MediaPart } from "./llm/gemini.js";
 import { parseEmotionTag, EMOTIONS } from "./persona.js";
-import { startAvatarBridge, say as avatarSay } from "./avatar/bridge.js";
+import { startAvatarBridge } from "./avatar/bridge.js";
+import { sayAndSpeak } from "./avatar/speak.js";
 import { addTurn, getRecentHistory } from "./memory/shortterm.js";
 import { remember, recall } from "./memory/longterm.js";
 import { getSetting, setSetting } from "./memory/settings.js";
@@ -198,9 +199,14 @@ client.on(Events.MessageCreate, (message) => {
 
     console.log(`[DM${isOwner ? "" : " guest"}] ${message.author.tag}: ${message.content}`);
 
+    // Per-stage timing, logged once per reply — replies were taking 15-20s and
+    // the model call alone measures ~2s, so the time is going somewhere else.
+    const t0 = Date.now();
     await message.channel.sendTyping();
+    const tTyping = Date.now();
 
     const files = await fetchAttachments(message.attachments.values());
+    const tFiles = Date.now();
 
     const sections: string[] = [];
     if (message.content) sections.push(message.content);
@@ -218,6 +224,7 @@ client.on(Events.MessageCreate, (message) => {
     // Recall on the typed message only — an entire attached document as the
     // query embeds to something unrelated to what the user actually asked.
     const memories = await recall(message.content || text_);
+    const tRecall = Date.now();
     const memoryContext = memories.length > 0 ? memories.join("\n") : undefined;
     const contact = getContact(message.author.id);
     const speakerName = isOwner ? "주인님" : (contact?.name ?? message.author.username);
@@ -238,6 +245,11 @@ client.on(Events.MessageCreate, (message) => {
       return;
     }
 
+    const tChat = Date.now();
+    console.log(
+      `  -> timing: typing=${tTyping - t0}ms attach=${tFiles - tTyping}ms recall=${tRecall - tFiles}ms chat=${tChat - tRecall}ms total=${tChat - t0}ms`
+    );
+
     const raw = result.text;
     const { emotion, text } = parseEmotionTag(raw);
     console.log(`  -> emotion=${emotion} text=${text}`);
@@ -249,7 +261,7 @@ client.on(Events.MessageCreate, (message) => {
       void remember(speakerName, text_, text);
     }
 
-    avatarSay(emotion, text);
+    sayAndSpeak(emotion, text);
     await sendAsChatBubbles(message.channel, text);
   });
 });

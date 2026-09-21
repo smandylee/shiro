@@ -9,7 +9,12 @@ import type { Emotion } from "../persona.js";
 
 export type AvatarEvent =
   | { type: "hello"; emotions: readonly string[] }
-  | { type: "say"; id: string; emotion: Emotion; text: string };
+  | { type: "say"; id: string; emotion: Emotion; text: string }
+  // The voice for a "say", streamed as it is synthesized: start, then base64
+  // audio chunks in order, then end. All carry the id of the "say" they belong to.
+  | { type: "speak_start"; id: string; mime: string }
+  | { type: "speak_chunk"; id: string; data: string }
+  | { type: "speak_end"; id: string };
 
 type Client = {
   socket: WebSocket;

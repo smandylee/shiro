@@ -61,9 +61,12 @@ GOOGLE_CLOUD_PROJECT  GOOGLE_CLOUD_LOCATION  GOOGLE_APPLICATION_CREDENTIALS
 PINECONE_API_KEY
 OPENCLAW_GATEWAY_URL  OPENCLAW_GATEWAY_TOKEN
 AVATAR_BRIDGE_TOKEN  AVATAR_BRIDGE_HOST
+TYPECAST_API_KEY  TYPECAST_VOICE_ID
 ```
 
 `AVATAR_BRIDGE_TOKEN`이 없으면 브릿지는 **켜지지 않습니다** (fail-closed).
+`TYPECAST_*`가 없으면 목소리만 꺼지고 나머지는 그대로 동작합니다. 아바타가 접속해 있지
+않을 때도 TTS를 호출하지 않아서 비용이 나가지 않아요.
 
 로그: `sudo journalctl -u shiro-orchestrator -f`
 

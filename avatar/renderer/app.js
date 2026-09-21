@@ -35,7 +35,14 @@ const bubble = document.getElementById("bubble");
 const panel = document.getElementById("panel");
 const statusEl = document.getElementById("status");
 
-let config = { bridgeUrl: "ws://127.0.0.1:18790", bridgeToken: "", scale: 0.32, showBubble: true };
+let config = {
+  bridgeUrl: "ws://127.0.0.1:18790",
+  bridgeToken: "",
+  scale: 0.32,
+  showBubble: true,
+  voice: true,
+  voiceVolume: 0.8,
+};
 let sheet = null;
 const images = new Map();
 
@@ -331,7 +338,129 @@ function setEmotion(next) {
 
 let bubbleTimer = null;
 
+// The voice belongs to one specific reply. A clip that lands after a newer
+// reply has already started would talk over it, so it's matched by id.
+let currentSayId = null;
+
+// The voice arrives as a stream of MP3 chunks. They are appended to a
+// MediaSource as they come, so playback starts on the first chunk instead of
+// after the whole clip. Where MediaSource can't take the format, the chunks are
+// gathered and played as one clip once the stream ends.
+let voice = null; // { id, audio, url, ms, sb, queue, ended, parts, mime, started }
+
+const HOLD_TAIL_MS = 700; // let the pose settle a beat after the last word
+const STREAM_STALL_MS = 20000; // never hold a pose longer than this waiting on audio
+
+function stopVoice() {
+  if (!voice) return;
+  const v = voice;
+  voice = null;
+  v.audio.pause();
+  v.audio.removeAttribute("src");
+  v.audio.load();
+  if (v.url) URL.revokeObjectURL(v.url);
+}
+
+function startPlayback(v) {
+  if (v.started || voice !== v) return;
+  v.started = true;
+  v.audio.play().catch((err) => console.error("[avatar] voice playback failed:", err));
+}
+
+// Feeds queued chunks into the SourceBuffer one at a time (it accepts a single
+// append until "updateend"), and closes the stream once the server is done.
+function pump(v) {
+  if (voice !== v || !v.sb || v.sb.updating) return;
+  const next = v.queue.shift();
+  if (next) {
+    try {
+      v.sb.appendBuffer(next);
+    } catch (err) {
+      console.error("[avatar] voice append failed:", err);
+    }
+    return;
+  }
+  if (v.ended && v.ms.readyState === "open") v.ms.endOfStream();
+}
+
+function holdPoseUntilVoiceEnds(v) {
+  const remaining = Number.isFinite(v.audio.duration) ? v.audio.duration - v.audio.currentTime : 0;
+  releaseAt = performance.now() + Math.max(0, remaining) * 1000 + HOLD_TAIL_MS;
+}
+
+function onSpeakStart(event) {
+  if (!config.voice || event.id !== currentSayId) return;
+
+  stopVoice();
+  const audio = new Audio();
+  audio.volume = config.voiceVolume;
+  const v = { id: event.id, audio, url: null, ms: null, sb: null, queue: [], ended: false, parts: [], mime: event.mime, started: false };
+  voice = v;
+
+  // The pose was set for a guess based on text length, which runs short for a
+  // long clip. Hold it while the voice is still coming, with a ceiling in case
+  // the stream stalls; the real length replaces this once it is known.
+  releaseAt = performance.now() + STREAM_STALL_MS;
+  audio.onended = () => {
+    if (voice === v) releaseAt = performance.now() + HOLD_TAIL_MS;
+  };
+
+  if (window.MediaSource && MediaSource.isTypeSupported(event.mime)) {
+    const ms = new MediaSource();
+    v.ms = ms;
+    v.url = URL.createObjectURL(ms);
+    audio.src = v.url;
+    ms.addEventListener(
+      "sourceopen",
+      () => {
+        if (voice !== v) return;
+        v.sb = ms.addSourceBuffer(event.mime);
+        v.sb.addEventListener("updateend", () => {
+          startPlayback(v);
+          pump(v);
+        });
+        pump(v);
+      },
+      { once: true }
+    );
+    ms.addEventListener("sourceended", () => {
+      if (voice === v) holdPoseUntilVoiceEnds(v);
+    });
+  }
+}
+
+function onSpeakChunk(event) {
+  const v = voice;
+  if (!v || event.id !== v.id) return;
+
+  const bytes = Uint8Array.from(atob(event.data), (c) => c.charCodeAt(0));
+  if (v.ms) {
+    v.queue.push(bytes);
+    pump(v);
+  } else {
+    v.parts.push(bytes);
+  }
+}
+
+function onSpeakEnd(event) {
+  const v = voice;
+  if (!v || event.id !== v.id) return;
+
+  v.ended = true;
+  if (v.ms) {
+    pump(v);
+    return;
+  }
+  // No MediaSource support for this format: play the gathered clip in one go.
+  v.url = URL.createObjectURL(new Blob(v.parts, { type: v.mime }));
+  v.audio.src = v.url;
+  v.audio.onloadedmetadata = () => holdPoseUntilVoiceEnds(v);
+  startPlayback(v);
+}
+
 function onSay(event) {
+  currentSayId = event.id;
+  stopVoice();
   setEmotion(event.emotion);
   // Hold the emotion roughly as long as it takes to read the line.
   const holdMs = Math.min(12000, Math.max(4000, (event.text?.length ?? 0) * 90));
@@ -369,6 +498,12 @@ function connect() {
       setStatus("시로와 연결됨", "ok");
     } else if (event.type === "say") {
       onSay(event);
+    } else if (event.type === "speak_start") {
+      onSpeakStart(event);
+    } else if (event.type === "speak_chunk") {
+      onSpeakChunk(event);
+    } else if (event.type === "speak_end") {
+      onSpeakEnd(event);
     }
   };
 
@@ -415,6 +550,20 @@ function buildPanel() {
       clearTimeout(bubbleTimer);
       bubble.classList.add("hidden");
     }
+  };
+
+  const voiceToggle = document.getElementById("voice-toggle");
+  voiceToggle.checked = config.voice;
+  voiceToggle.onchange = () => {
+    config.voice = voiceToggle.checked;
+    if (!config.voice) stopVoice();
+  };
+
+  const volume = document.getElementById("voice-volume");
+  volume.value = config.voiceVolume;
+  volume.oninput = () => {
+    config.voiceVolume = Number(volume.value);
+    if (voice) voice.audio.volume = config.voiceVolume;
   };
 
   document.getElementById("hide-panel").onclick = () => window.shiro.setInteractive(false);

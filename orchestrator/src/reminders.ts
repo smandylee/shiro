@@ -2,7 +2,7 @@ import { db } from "./memory/db.js";
 import { getSetting } from "./memory/settings.js";
 import { listUpcomingEventsRaw } from "./google/calendar.js";
 import { parseEmotionTag } from "./persona.js";
-import { say as avatarSay } from "./avatar/bridge.js";
+import { sayAndSpeak } from "./avatar/speak.js";
 
 const REMINDER_WINDOW_MS = 60 * 60 * 1000; // 1 hour ahead
 
@@ -51,7 +51,7 @@ export async function checkReminders(
       `[emotion:thinking] 주인님, ${minutesUntil}분 후에 "${event.summary}" 일정 시작이야! 잊지 말고 준비해`
     );
     try {
-      avatarSay(emotion, text);
+      sayAndSpeak(emotion, text);
       await channel.send(text);
       markNotifiedStmt.run(event.id, now);
       console.log(`[reminders] notified for event ${event.id} (${event.summary})`);

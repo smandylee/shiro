@@ -54,6 +54,9 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // Her voice arrives over the socket, not from a click — without this the
+      // renderer refuses to play it.
+      autoplayPolicy: "no-user-gesture-required",
     },
   });
 
