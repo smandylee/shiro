@@ -25,6 +25,7 @@ import { saveNote, listNotes, readNote, searchNotes } from "../google/drive.js";
 import { sendDirectMessage, notifyOwner } from "../discord/actions.js";
 import { setContact, listContacts, findContactsByName } from "../memory/contacts.js";
 import { lookUpNamuWiki } from "../knowledge/namuwiki.js";
+import { canvasEnabled, describeItem, listUpcomingCanvas, markCanvasDone } from "../canvas/feed.js";
 
 const MODEL = "gemini-3.7-flash";
 
@@ -303,6 +304,30 @@ const ownerTools: FunctionDeclaration[] = [
     description: "시로가 기억하고 있는 사람들(이름, Discord ID) 목록을 확인할 때 사용한다. '그 사람 누구야?', '내가 소개한 사람 목록 보여줘' 같은 질문에 정확히 답하려면 이 도구를 써야 한다 — 추측하지 않는다.",
     parameters: { type: Type.OBJECT, properties: {} },
   },
+  {
+    name: "check_canvas",
+    description:
+      "주인님의 학교 Canvas에서 다가오는 과제·퀴즈 마감을 확인할 때 사용한다 ('이번 주 뭐 제출해야 해?', '과제 마감 언제야?'). 마감 임박순으로 나오고, 이미 냈다고 표시한 건 빠진다. 기억으로 답하지 말고 반드시 이 도구로 확인한다. 중요: 이 목록은 Canvas 캘린더 구독에서 오는 것이라 **마감일이 정해진 과제만** 들어 있다. 마감일이 없는 과제, 공지로만 알려준 일정(시험 등), 제출 여부, 성적은 알 수 없다. 결과가 비어 있어도 '과제가 없다'고 단정하지 말고 '마감일이 정해진 과제는 없어'라고 말한다.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        days: { type: Type.NUMBER, description: "며칠 앞까지 볼지 (기본 14일)" },
+        details: { type: Type.BOOLEAN, description: "과제 설명문도 같이 볼지 (기본: 안 봄). 무슨 과제인지 자세히 물을 때만 켠다" },
+      },
+    },
+  },
+  {
+    name: "mark_canvas_done",
+    description:
+      "주인님이 Canvas 과제를 이미 냈다고 하면('그거 냈어', '과제 제출했어') 그 과제를 완료로 표시해서 더 이상 마감 알림이 가지 않게 한다. 어떤 과제인지 모르면 먼저 check_canvas로 목록을 확인하고, 그 결과의 [id:...] 값을 넘긴다. 어느 과제인지 애매하면 추측하지 말고 주인님께 되묻는다.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        id: { type: Type.STRING, description: "완료 처리할 과제의 id (check_canvas 결과의 [id:...] 값)" },
+      },
+      required: ["id"],
+    },
+  },
 ];
 
 // Tool calls that touch the owner's private data — exchanges that use any of
@@ -324,6 +349,8 @@ const PERSONAL_TOOLS = new Set([
   "list_notes",
   "read_note",
   "search_notes",
+  "check_canvas",
+  "mark_canvas_done",
 ]);
 
 const guestTools: FunctionDeclaration[] = [
@@ -478,6 +505,26 @@ async function runTool(
       return readNote(args.title as string);
     case "search_notes":
       return searchNotes(args.query as string);
+    case "check_canvas": {
+      if (!canvasEnabled()) return "Canvas 연결이 아직 설정되어 있지 않아.";
+      const items = await listUpcomingCanvas(typeof args.days === "number" ? args.days : 14);
+      if (items.length === 0) {
+        return "앞으로 마감일이 정해진 Canvas 과제는 없어. (마감일이 없는 과제나 공지로만 알려준 일정은 여기 안 나와)";
+      }
+      const lines = items.map(
+        (i) => describeItem(i, true) + (args.details === true && i.details ? `\n    설명: ${i.details}` : "")
+      );
+      return (
+        `다가오는 Canvas 마감 (시각은 홍콩 시간, 이미 냈다고 표시한 건 제외):\n${lines.join("\n")}\n\n` +
+        "※ 마감일이 정해진 과제만 나오는 목록이야. 공지로만 알린 일정, 제출 여부, 성적은 알 수 없어."
+      );
+    }
+    case "mark_canvas_done": {
+      const title = await markCanvasDone(args.id as string);
+      return title
+        ? `"${title}" 완료로 표시했어. 이제 이 과제 마감은 알려주지 않을게.`
+        : "그 id의 과제를 못 찾았어. check_canvas로 목록을 다시 확인해봐.";
+    }
     case "send_discord_dm": {
       const message = args.message as string;
       let targetId = (args.userId as string | undefined)?.trim();

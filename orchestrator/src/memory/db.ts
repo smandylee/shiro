@@ -61,6 +61,13 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_todos_open ON todos(done, due_at);
 
+  -- Canvas assignments the owner says they've handed in. The calendar feed has
+  -- no submission status, so without this every deadline would keep nudging.
+  CREATE TABLE IF NOT EXISTS canvas_done (
+    uid TEXT PRIMARY KEY,
+    done_at INTEGER NOT NULL
+  );
+
   -- Shell commands Shiro wants to run, held until the owner approves them.
   CREATE TABLE IF NOT EXISTS pending_commands (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
