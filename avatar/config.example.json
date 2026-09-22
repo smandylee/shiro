@@ -4,5 +4,8 @@
   "scale": 0.32,
   "showBubble": false,
   "allowScreenCapture": false,
-  "allowMicrophone": false
+  "allowMicrophone": false,
+  "allowDevTasks": false,
+  "devModel": "sonnet",
+  "devMaxBudgetUsd": 2
 }

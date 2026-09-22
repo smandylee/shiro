@@ -23,7 +23,10 @@ export type AvatarEvent =
   | { type: "capture_request"; id: string }
   // What she made of the owner's spoken words ("" when nothing could be made out),
   // so the avatar can stop showing "listening…".
-  | { type: "heard"; text: string };
+  | { type: "heard"; text: string }
+  // A development request the owner approved: the PC runs Claude Code on it in
+  // an isolated worktree and answers with a `dev_result` carrying the same id.
+  | { type: "dev_task"; id: number; task: string };
 
 // One job posting as the PC-side crawler reports it. Every field but the URL
 // may be missing — job boards don't always give a date or a clean location.
@@ -185,6 +188,35 @@ function onJobMessage(msg: { type?: string; postings?: unknown }): void {
   if (postings.length > 0) jobListener?.(postings);
 }
 
+export type DevResultMessage = {
+  id: number;
+  ok: boolean;
+  summary: string;
+  branch?: string | null;
+  costUsd?: number | null;
+  touchedGuardrails?: string[];
+};
+export type DevListener = (result: DevResultMessage) => void;
+let devListener: DevListener | null = null;
+
+export function setDevListener(listener: DevListener): void {
+  devListener = listener;
+}
+
+function onDevMessage(msg: Record<string, unknown>): void {
+  if (typeof msg.id !== "number" || typeof msg.summary !== "string") return;
+  devListener?.({
+    id: msg.id,
+    ok: msg.ok === true,
+    summary: msg.summary.slice(0, 4000),
+    branch: typeof msg.branch === "string" ? msg.branch : null,
+    costUsd: typeof msg.costUsd === "number" ? msg.costUsd : null,
+    touchedGuardrails: Array.isArray(msg.touchedGuardrails)
+      ? msg.touchedGuardrails.filter((f): f is string => typeof f === "string").slice(0, 50)
+      : [],
+  });
+}
+
 function onWatchMessage(client: Client, msg: { type?: string; on?: unknown; mime?: unknown; data?: unknown }): void {
   if (msg.type === "watch_state") {
     const on = msg.on === true;
@@ -269,6 +301,7 @@ export function startAvatarBridge(emotions: readonly string[]): void {
         if (reply.type === "capture_result") onCaptureResult(client, reply);
         else if (reply.type === "voice_start" || reply.type === "voice_input") onVoiceMessage(reply);
         else if (reply.type === "job_results") onJobMessage(reply);
+        else if (reply.type === "dev_result") onDevMessage(reply as Record<string, unknown>);
         else onWatchMessage(client, reply);
         return;
       }
