@@ -1,7 +1,6 @@
 const { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, screen, session } = require("electron");
 const { readFileSync, existsSync, writeFileSync, appendFileSync, statSync, readdirSync, unlinkSync } = require("node:fs");
 const path = require("node:path");
-const { runDevTask } = require("./devtask.js");
 
 // Shiro sits on top of whatever the owner is doing, so the window is
 // transparent, frameless, and click-through by default. Interactive mode is a
@@ -386,19 +385,6 @@ app.whenReady().then(() => {
   ipcMain.on("drag-start", () => startDrag());
   ipcMain.on("drag-end", () => endDrag(true));
   ipcMain.on("set-watching", (_e, value) => setWatching(Boolean(value)));
-
-  // An approved development request arrived from the server: run Claude Code on
-  // it here and hand the outcome back for the renderer to return over the socket.
-  ipcMain.on("dev-task", (_e, payload) => {
-    if (!payload || typeof payload.id !== "number" || typeof payload.task !== "string") return;
-    logLine(`[dev] received request #${payload.id}`);
-    runDevTask({ id: payload.id, task: payload.task, config, log: logLine })
-      .then((result) => win && win.webContents.send("dev-result", result))
-      .catch((err) => {
-        logLine(`[dev] #${payload.id} crashed: ${err.message}`);
-        if (win) win.webContents.send("dev-result", { id: payload.id, ok: false, summary: `실행 중 오류: ${err.message}` });
-      });
-  });
 
   // A job-results file was sent (or the socket wasn't open): only remove it on
   // success, so a closed avatar just leaves it for the next time it's open.

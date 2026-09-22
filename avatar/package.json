@@ -5,7 +5,8 @@
   "description": "Desktop overlay avatar for Shiro",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "devworker": "node devworker.js"
   },
   "devDependencies": {
     "electron": "^33.0.0",

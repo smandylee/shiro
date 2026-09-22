@@ -1,5 +1,6 @@
 const { spawn, execFileSync } = require("node:child_process");
 const path = require("node:path");
+const fs = require("node:fs");
 
 // Runs one approved development request through Claude Code, on the owner's PC.
 // Shiro only supplies the wording of the request; everything about HOW it runs
@@ -82,6 +83,34 @@ function inspectBranch(name, branch) {
 }
 
 /**
+ * A fresh worktree has no dependencies, so `tsc` cannot run inside it. Junctions
+ * (cheap on Windows, no copying) point at the real ones so the work can be
+ * checked. Done after the run, not before, so the run never gets a path out.
+ */
+function typecheckWorktree(name, log) {
+  const worktreeDir = path.join(REPO_DIR, ".claude", "worktrees", name);
+  const orchestrator = path.join(worktreeDir, "orchestrator");
+  if (!fs.existsSync(orchestrator)) return null;
+
+  const link = path.join(orchestrator, "node_modules");
+  if (!fs.existsSync(link)) {
+    try {
+      fs.symlinkSync(path.join(REPO_DIR, "orchestrator", "node_modules"), link, "junction");
+    } catch (err) {
+      log(`[dev] could not link node_modules for the check: ${err.message}`);
+      return null;
+    }
+  }
+  try {
+    execFileSync("npx", ["tsc", "--noEmit"], { cwd: orchestrator, encoding: "utf8", shell: true, timeout: 180_000 });
+    return { ok: true, output: "" };
+  } catch (err) {
+    const output = `${err.stdout || ""}${err.stderr || ""}`.trim();
+    return { ok: false, output: output.split(/\r?\n/).slice(0, 12).join("\n") };
+  }
+}
+
+/**
  * Runs one request. Resolves with what to report back — it never throws, because
  * a failure here still has to reach the owner as an answer.
  */
@@ -98,13 +127,19 @@ function runDevTask({ id, task, config, log }) {
     const name = `shiro-dev-${id}-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`;
     // Claude Code names the branch after the worktree, with its own prefix.
     const branch = `worktree-${name}`;
-    // Asking for a commit makes the branch reviewable on its own; the diff check
-    // below still catches work left uncommitted.
+    // The request comes from Shiro, who cannot read the code and does not know
+    // what is already there. Judging whether it is worth doing is part of the
+    // job — doing pointless work quietly is worse than saying no.
     const prompt =
-      `${task}
-
-` +
-      "끝나면 바꾼 내용을 git 으로 커밋해줘 (push 는 하지 마). 무엇을 왜 바꿨는지 한국어로 짧게 설명해줘.";
+      `${task}\n\n` +
+      "--- 위 요청은 시로(비서 AI)가 보낸 것이고, 시로는 코드를 읽지 못해. 아래를 지켜줘 ---\n" +
+      "1. 먼저 이 요청이 할 만한 일인지 판단해. 이미 되어 있거나, 효과가 없거나, 오히려 나쁘거나, " +
+      "무엇을 원하는지 알 수 없을 만큼 막연하면 **아무것도 바꾸지 말고** 왜 안 했는지 설명만 해줘. " +
+      "억지로 그럴듯한 변경을 만들어내지 마.\n" +
+      "2. 할 만한 일이면 필요한 만큼만 바꿔. 요청에 없는 것까지 손대지 마.\n" +
+      "3. 코드를 바꿨으면 타입 체크로 확인해 (orchestrator: npx tsc --noEmit, avatar: node --check).\n" +
+      "4. 끝나면 바꾼 내용을 git 으로 커밋해 (push 는 하지 마).\n" +
+      "5. 마지막에 한국어로 짧게 설명해. 안 한 경우에는 왜 안 했는지가 설명이야.";
     const args = [
       "-p",
       prompt,
@@ -172,11 +207,19 @@ function runDevTask({ id, task, config, log }) {
         ? `\n\n바뀐 파일 ${files.length}개:\n${files.slice(0, 25).map((f) => `- ${f}`).join("\n")}`
         : "\n\n(바뀐 파일 없음)";
 
+      // Only worth checking when something actually changed.
+      const check = files.length ? typecheckWorktree(name, log) : null;
+      const checkNote = !check
+        ? ""
+        : check.ok
+          ? "\n\n타입 체크 통과."
+          : `\n\n⚠️ 타입 체크 실패:\n${check.output}`;
+
       if (code === 0 && parsed) {
         log(`[dev] #${id} finished, ${files.length} file(s), $${parsed.total_cost_usd ?? "?"}`);
         return done({
-          ok: true,
-          summary: `${(parsed.result || "(설명 없음)").slice(0, 1500)}${changed}`,
+          ok: !check || check.ok,
+          summary: `${(parsed.result || "(설명 없음)").slice(0, 1500)}${changed}${checkNote}`,
           branch,
           costUsd: typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : null,
           touchedGuardrails,

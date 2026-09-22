@@ -580,15 +580,6 @@ function sendJson(payload) {
 // this just forwards whatever main.js found in the output folder, one file's
 // worth at a time, and reports back whether it went out so the file is only
 // deleted once it actually did.
-function setupDevTasks() {
-  // The server sends an approved request; the main process runs it and answers
-  // here, and the answer goes back over the same socket.
-  window.shiro.onDevResult((result) => {
-    console.log(`[dev] result for #${result.id}: ${result.ok ? "ok" : "failed"}`);
-    sendJson({ type: "dev_result", ...result });
-  });
-}
-
 function setupJobs() {
   window.shiro.onJobResults(({ id, postings }) => {
     const ok = sendJson({ type: "job_results", postings });
@@ -709,9 +700,6 @@ function connect() {
       onSpeakChunk(event);
     } else if (event.type === "speak_end") {
       onSpeakEnd(event);
-    } else if (event.type === "dev_task") {
-      console.log(`[dev] task #${event.id} received from the server`);
-      window.shiro.runDevTask({ id: event.id, task: event.task });
     } else if (event.type === "capture_request") {
       // The main process decides whether screen capture is allowed at all.
       window.shiro
@@ -821,7 +809,6 @@ async function main() {
   setupWatch();
   setupMic();
   setupJobs();
-  setupDevTasks();
   // The wheel over her makes her larger or smaller.
   setupDrag({ canvas, ctx, onWheel: (deltaY) => setScale(config.scale * Math.exp(-deltaY * WHEEL_SENSITIVITY)) });
 

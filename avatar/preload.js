@@ -7,8 +7,6 @@ contextBridge.exposeInMainWorld("shiro", {
   onWatch: (cb) => ipcRenderer.on("watch", (_e, state) => cb(state)),
   onWatchFrame: (cb) => ipcRenderer.on("watch-frame", (_e, frame) => cb(frame)),
   onJobResults: (cb) => ipcRenderer.on("job-results", (_e, payload) => cb(payload)),
-  onDevResult: (cb) => ipcRenderer.on("dev-result", (_e, result) => cb(result)),
-  runDevTask: (payload) => ipcRenderer.send("dev-task", payload),
   jobResultsAck: (id, ok) => ipcRenderer.send("job-results-ack", id, ok),
   setWatching: (value) => ipcRenderer.send("set-watching", value),
   onInteractive: (cb) => ipcRenderer.on("interactive", (_e, value) => cb(value)),
