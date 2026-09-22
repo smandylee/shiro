@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, Partials, Events } from "discord.js";
 import { EMOTIONS } from "./persona.js";
-import { startAvatarBridge } from "./avatar/bridge.js";
+import { startAvatarBridge, setJobListener } from "./avatar/bridge.js";
+import { storeJobPostings } from "./memory/jobs.js";
 import { getSetting, setSetting } from "./memory/settings.js";
 import { checkReminders } from "./reminders.js";
 import { checkProactive } from "./proactive.js";
@@ -37,6 +38,22 @@ const REMINDER_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 client.once(Events.ClientReady, async (c) => {
   console.log(`logged in as ${c.user.tag}`);
   setDiscordClient(client);
+  // A batch from the PC-side JobSpy crawler, relayed through the avatar; stored
+  // for check_jobs to hand out on request, never announced on its own.
+  setJobListener((postings) => {
+    const added = storeJobPostings(
+      postings.map((p) => ({
+        jobUrl: p.jobUrl,
+        title: p.title,
+        company: p.company,
+        location: p.location ?? null,
+        datePosted: p.datePosted ?? null,
+        site: p.site,
+        query: p.query ?? null,
+      }))
+    );
+    console.log(`[jobs] received ${postings.length} posting(s), ${added} new`);
+  });
   startAvatarBridge(EMOTIONS);
 
   const ownerUserId = process.env.DISCORD_OWNER_USER_ID;

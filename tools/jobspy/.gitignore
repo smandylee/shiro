@@ -1,0 +1,4 @@
+output/
+crawl.log
+venv/
+__pycache__/

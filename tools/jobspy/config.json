@@ -1,0 +1,18 @@
+{
+  "queries": [
+    "software engineer",
+    "computer science graduate",
+    "junior developer",
+    "data scientist analyst",
+    "machine learning AI engineer",
+    "software engineer intern"
+  ],
+  "location": "Hong Kong",
+  "countryIndeed": "Hong Kong",
+  "sites": ["linkedin", "indeed"],
+  "resultsPerQuery": 20,
+  "hoursOld": 720,
+  "requestGapSeconds": 4,
+  "queryGapSeconds": 6,
+  "fetchLinkedinDescriptions": false
+}

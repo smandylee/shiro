@@ -1,5 +1,5 @@
 const { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, screen, session } = require("electron");
-const { readFileSync, existsSync, writeFileSync, appendFileSync, statSync } = require("node:fs");
+const { readFileSync, existsSync, writeFileSync, appendFileSync, statSync, readdirSync, unlinkSync } = require("node:fs");
 const path = require("node:path");
 
 // Shiro sits on top of whatever the owner is doing, so the window is
@@ -86,14 +86,17 @@ function createWindow() {
     },
   });
 
-  // Mic and watch decisions, plus anything that went wrong on the page.
+  // Mic, watch and job-relay decisions, plus anything that went wrong on the page.
   win.webContents.on("console-message", (_e, level, message) => {
-    if (level >= 2 || /^\[(mic|watch)\]/.test(message)) logLine(`[page] ${message}`);
+    if (level >= 2 || /^\[(mic|watch|jobs)\]/.test(message)) logLine(`[page] ${message}`);
   });
 
   win.setAlwaysOnTop(true, "screen-saver");
   // forward:true keeps hover events flowing so the renderer can still react.
   win.setIgnoreMouseEvents(true, { forward: true });
+  // A job-results send before the page has attached its listener is dropped
+  // silently, so the first check waits for it rather than racing it.
+  win.webContents.once("did-finish-load", jobsTick);
   win.loadFile(path.join(__dirname, "renderer", "index.html"));
 
   win.on("moved", savePosition);
@@ -264,6 +267,64 @@ function setWatching(next) {
   win.webContents.send("watch", { on: watching });
 }
 
+/* ---------- job postings (from the PC-side JobSpy crawler, see tools/jobspy/) ---------- */
+
+// The crawler runs on its own schedule (Windows Task Scheduler) and just drops
+// JSON files here; nothing here fetches or scrapes anything. Picked up on a
+// timer rather than a file-system watcher, since a scheduled task's writes
+// don't need to be seen within milliseconds.
+const JOBS_DIR = path.join(__dirname, "..", "tools", "jobspy", "output");
+const JOBS_POLL_MS = 60_000;
+const JOBS_MAX_POSTINGS = 500;
+// A dropped IPC message (sent before the renderer had attached its listener,
+// say) must not strand a file as "pending" forever with no ack ever coming —
+// so a pending send this old is abandoned and the file is offered again.
+const JOBS_PENDING_TIMEOUT_MS = 90_000;
+// Files handed to the renderer, waiting for it to say whether the send worked.
+const jobsPending = new Map(); // file -> { full, sentAt }
+
+function jobsTick() {
+  if (!win || !existsSync(JOBS_DIR)) return;
+
+  const now = Date.now();
+  for (const [file, entry] of jobsPending) {
+    if (now - entry.sentAt > JOBS_PENDING_TIMEOUT_MS) {
+      logLine(`[jobs] no ack for ${file} after ${JOBS_PENDING_TIMEOUT_MS / 1000}s, will retry`);
+      jobsPending.delete(file);
+    }
+  }
+
+  let files;
+  try {
+    files = readdirSync(JOBS_DIR).filter((f) => f.endsWith(".json"));
+  } catch (err) {
+    logLine(`[jobs] could not list ${JOBS_DIR}: ${err.message}`);
+    return;
+  }
+  for (const file of files) {
+    if (jobsPending.has(file)) continue;
+    const full = path.join(JOBS_DIR, file);
+    let postings;
+    try {
+      const raw = JSON.parse(readFileSync(full, "utf8"));
+      postings = Array.isArray(raw) ? raw : Array.isArray(raw?.postings) ? raw.postings : null;
+    } catch (err) {
+      logLine(`[jobs] could not read ${file}: ${err.message}`);
+      continue;
+    }
+    if (!postings || postings.length === 0) {
+      try {
+        unlinkSync(full);
+      } catch {
+        /* picked up again next tick, harmless */
+      }
+      continue;
+    }
+    jobsPending.set(file, { full, sentAt: now });
+    win.webContents.send("job-results", { id: file, postings: postings.slice(0, JOBS_MAX_POSTINGS) });
+  }
+}
+
 app.whenReady().then(() => {
   createWindow();
   keepOnScreen(); // a saved position on a monitor that is no longer there
@@ -324,6 +385,20 @@ app.whenReady().then(() => {
   ipcMain.on("drag-start", () => startDrag());
   ipcMain.on("drag-end", () => endDrag(true));
   ipcMain.on("set-watching", (_e, value) => setWatching(Boolean(value)));
+
+  // A job-results file was sent (or the socket wasn't open): only remove it on
+  // success, so a closed avatar just leaves it for the next time it's open.
+  ipcMain.on("job-results-ack", (_e, id, ok) => {
+    const entry = jobsPending.get(id);
+    jobsPending.delete(id);
+    if (!ok || !entry) return;
+    try {
+      unlinkSync(entry.full);
+    } catch (err) {
+      logLine(`[jobs] could not remove ${id}: ${err.message}`);
+    }
+  });
+  setInterval(jobsTick, JOBS_POLL_MS);
 });
 
 app.on("will-quit", () => globalShortcut.unregisterAll());

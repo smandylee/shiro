@@ -1,0 +1,1 @@
+python-jobspy==1.1.82

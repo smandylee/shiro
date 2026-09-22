@@ -31,6 +31,7 @@ import { searchWeb } from "../knowledge/websearch.js";
 import { requestScreenCapture } from "../avatar/bridge.js";
 import { muteChatter } from "../chatter.js";
 import { recall } from "../memory/longterm.js";
+import { unseenJobPostings, markAllShown } from "../memory/jobs.js";
 import {
   MAX_FACTS,
   addFact,
@@ -394,6 +395,14 @@ const ownerTools: FunctionDeclaration[] = [
     },
   },
   {
+    name: "check_jobs",
+    description:
+      "주인님 PC에서 JobSpy로 모아둔 홍콩 채용/인턴 공고 중 아직 안 보여준 것을 확인할 때 사용한다 ('새 공고 있어?', '취업 공고 뭐 있어?'). " +
+      "주인님이 직접 물어봤을 때만 쓰고, 스스로 먼저 알려주지 않는다. 결과를 보여준 뒤에는 그 공고들이 '이미 본 것'으로 표시되어 다음번엔 안 나온다. " +
+      "PC의 크롤러가 하루 1~2번만 도니, 결과가 비어 있으면 '새로 찾은 공고가 없다'고 솔직히 말하고 방금 확인 안 됐다고 지어내지 않는다.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
     name: "mark_canvas_done",
     description:
       "주인님이 Canvas 과제를 이미 냈다고 하면('그거 냈어', '과제 제출했어') 그 과제를 완료로 표시해서 더 이상 마감 알림이 가지 않게 한다. 어떤 과제인지 모르면 먼저 check_canvas로 목록을 확인하고, 그 결과의 [id:...] 값을 넘긴다. 어느 과제인지 애매하면 추측하지 말고 주인님께 되묻는다.",
@@ -450,6 +459,7 @@ const PERSONAL_TOOLS = new Set([
   "search_notes",
   "check_canvas",
   "mark_canvas_done",
+  "check_jobs",
 ]);
 
 const guestTools: FunctionDeclaration[] = [
@@ -731,6 +741,15 @@ async function runTool(
         `다가오는 Canvas 마감 (시각은 홍콩 시간, 이미 냈다고 표시한 건 제외):\n${lines.join("\n")}\n\n` +
         "※ 마감일이 정해진 과제만 나오는 목록이야. 공지로만 알린 일정, 제출 여부, 성적은 알 수 없어."
       );
+    }
+    case "check_jobs": {
+      const jobs = unseenJobPostings();
+      if (jobs.length === 0) return "PC 크롤러가 아직 새로 찾은 공고가 없어. (하루 1~2번만 도니 조금 있다 다시 물어봐줘)";
+      const lines = jobs.map(
+        (j) => `- [${j.site}] ${j.company} — ${j.title}${j.location ? ` (${j.location})` : ""}${j.datePosted ? ` · ${j.datePosted}` : ""}\n  ${j.jobUrl}`
+      );
+      markAllShown();
+      return `아직 안 보여준 공고 ${jobs.length}개:\n${lines.join("\n")}`;
     }
     case "mark_canvas_done": {
       const title = await markCanvasDone(args.id as string);

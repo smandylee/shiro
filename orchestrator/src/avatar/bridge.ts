@@ -25,6 +25,18 @@ export type AvatarEvent =
   // so the avatar can stop showing "listening…".
   | { type: "heard"; text: string };
 
+// One job posting as the PC-side crawler reports it. Every field but the URL
+// may be missing — job boards don't always give a date or a clean location.
+export type RawJobPosting = {
+  jobUrl: string;
+  title: string;
+  company: string;
+  location?: string | null;
+  datePosted?: string | null;
+  site: string;
+  query?: string | null;
+};
+
 type Client = {
   socket: WebSocket;
   authed: boolean;
@@ -153,6 +165,26 @@ function onVoiceMessage(msg: { type?: string; mime?: unknown; data?: unknown }):
   }
 }
 
+export type JobListener = (postings: RawJobPosting[]) => void;
+let jobListener: JobListener | null = null;
+const MAX_JOB_BATCH = 500;
+
+export function setJobListener(listener: JobListener): void {
+  jobListener = listener;
+}
+
+function isValidJobPosting(p: unknown): p is RawJobPosting {
+  if (!p || typeof p !== "object") return false;
+  const j = p as Record<string, unknown>;
+  return typeof j.jobUrl === "string" && j.jobUrl.length > 0 && typeof j.title === "string" && typeof j.company === "string" && typeof j.site === "string";
+}
+
+function onJobMessage(msg: { type?: string; postings?: unknown }): void {
+  if (msg.type !== "job_results" || !Array.isArray(msg.postings)) return;
+  const postings = msg.postings.filter(isValidJobPosting).slice(0, MAX_JOB_BATCH);
+  if (postings.length > 0) jobListener?.(postings);
+}
+
 function onWatchMessage(client: Client, msg: { type?: string; on?: unknown; mime?: unknown; data?: unknown }): void {
   if (msg.type === "watch_state") {
     const on = msg.on === true;
@@ -233,9 +265,10 @@ export function startAvatarBridge(emotions: readonly string[]): void {
       }
       if (client.authed) {
         // The only thing a connected avatar says to us is an answer to a request.
-        const reply = parsed as { type?: string; id?: unknown; on?: unknown; mime?: unknown; data?: unknown; error?: unknown };
+        const reply = parsed as { type?: string; id?: unknown; on?: unknown; mime?: unknown; data?: unknown; error?: unknown; postings?: unknown };
         if (reply.type === "capture_result") onCaptureResult(client, reply);
         else if (reply.type === "voice_start" || reply.type === "voice_input") onVoiceMessage(reply);
+        else if (reply.type === "job_results") onJobMessage(reply);
         else onWatchMessage(client, reply);
         return;
       }

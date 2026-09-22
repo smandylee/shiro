@@ -574,6 +574,20 @@ function sendJson(payload) {
   return true;
 }
 
+/* ---------- job postings relay (see tools/jobspy/ and main.js) ---------- */
+
+// The crawler runs on the owner's PC and never talks to the server directly;
+// this just forwards whatever main.js found in the output folder, one file's
+// worth at a time, and reports back whether it went out so the file is only
+// deleted once it actually did.
+function setupJobs() {
+  window.shiro.onJobResults(({ id, postings }) => {
+    const ok = sendJson({ type: "job_results", postings });
+    console.log(`[jobs] forwarding ${postings.length} posting(s) from ${id}: ${ok ? "sent" : "not connected, kept for later"}`);
+    window.shiro.jobResultsAck(id, ok);
+  });
+}
+
 async function toggleMic() {
   console.log(`[mic] toggle: listening=${Boolean(listening)} socket=${socket ? socket.readyState : "none"}`);
   // Pressing again while listening ends it and sends what was said.
@@ -794,6 +808,7 @@ async function main() {
   window.shiro.onInteractive((on) => panel.classList.toggle("hidden", !on));
   setupWatch();
   setupMic();
+  setupJobs();
   // The wheel over her makes her larger or smaller.
   setupDrag({ canvas, ctx, onWheel: (deltaY) => setScale(config.scale * Math.exp(-deltaY * WHEEL_SENSITIVITY)) });
 
