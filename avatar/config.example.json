@@ -7,5 +7,10 @@
   "allowMicrophone": false,
   "allowDevTasks": false,
   "devModel": "sonnet",
-  "devMaxBudgetUsd": 2
+  "devMaxBudgetUsd": 2,
+  "allowDeploy": false,
+  "deployHost": "ubuntu@YOUR-SERVER-IP",
+  "deployKeyPath": "C:/path/to/your-ssh-key.pem",
+  "deployRemoteDir": "/home/ubuntu/orchestrator",
+  "deployService": "shiro-orchestrator"
 }

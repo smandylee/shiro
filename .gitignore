@@ -1,5 +1,8 @@
 node_modules/
 
+# Throwaway checkouts for Shiro's development requests, one per request.
+.claude/worktrees/
+
 # Holds the avatar bridge token. config.example.json is the template.
 avatar/config.json
 avatar/.window-state.json

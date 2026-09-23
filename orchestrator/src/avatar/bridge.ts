@@ -26,7 +26,12 @@ export type AvatarEvent =
   | { type: "heard"; text: string }
   // A development request the owner approved: the PC runs Claude Code on it in
   // an isolated worktree and answers with a `dev_result` carrying the same id.
-  | { type: "dev_task"; id: number; task: string };
+  | { type: "dev_task"; id: number; task: string }
+  // A finished dev task the owner looked at and told her to ship. The PC runs a
+  // fixed deploy script — merge, typecheck, upload, restart, roll back if she
+  // doesn't come up — and answers with a `deploy_result` carrying the same id.
+  // Nothing here says how to deploy; only which branch.
+  | { type: "deploy"; id: number; branch: string };
 
 // One job posting as the PC-side crawler reports it. Every field but the URL
 // may be missing — job boards don't always give a date or a clean location.
@@ -191,6 +196,8 @@ function onJobMessage(msg: { type?: string; postings?: unknown }): void {
 export type DevResultMessage = {
   id: number;
   ok: boolean;
+  /** "done" | "declined" | "escalated" | "failed" — what the run decided, not whether it crashed. */
+  verdict?: string | null;
   summary: string;
   branch?: string | null;
   costUsd?: number | null;
@@ -208,6 +215,7 @@ function onDevMessage(msg: Record<string, unknown>): void {
   devListener?.({
     id: msg.id,
     ok: msg.ok === true,
+    verdict: typeof msg.verdict === "string" ? msg.verdict : null,
     summary: msg.summary.slice(0, 4000),
     branch: typeof msg.branch === "string" ? msg.branch : null,
     costUsd: typeof msg.costUsd === "number" ? msg.costUsd : null,
@@ -215,6 +223,19 @@ function onDevMessage(msg: Record<string, unknown>): void {
       ? msg.touchedGuardrails.filter((f): f is string => typeof f === "string").slice(0, 50)
       : [],
   });
+}
+
+export type DeployResultMessage = { id: number; ok: boolean; summary: string };
+export type DeployListener = (result: DeployResultMessage) => void;
+let deployListener: DeployListener | null = null;
+
+export function setDeployListener(listener: DeployListener): void {
+  deployListener = listener;
+}
+
+function onDeployMessage(msg: Record<string, unknown>): void {
+  if (typeof msg.id !== "number" || typeof msg.summary !== "string") return;
+  deployListener?.({ id: msg.id, ok: msg.ok === true, summary: msg.summary.slice(0, 4000) });
 }
 
 function onWatchMessage(client: Client, msg: { type?: string; on?: unknown; mime?: unknown; data?: unknown }): void {
@@ -302,6 +323,7 @@ export function startAvatarBridge(emotions: readonly string[]): void {
         else if (reply.type === "voice_start" || reply.type === "voice_input") onVoiceMessage(reply);
         else if (reply.type === "job_results") onJobMessage(reply);
         else if (reply.type === "dev_result") onDevMessage(reply as Record<string, unknown>);
+        else if (reply.type === "deploy_result") onDeployMessage(reply as Record<string, unknown>);
         else onWatchMessage(client, reply);
         return;
       }

@@ -24,7 +24,14 @@ const GUARDRAIL_FILES = [
   "orchestrator/src/openclaw/client.ts",
   "orchestrator/src/persona.ts",
   "avatar/devtask.js",
+  "avatar/devworker.js",
+  "tools/deploy/deploy.js",
 ];
+
+// What the run decided to do. "I can't" is a real answer, and a different one
+// from "not worth doing": the first needs the owner to pick the job up himself,
+// the second needs nothing at all.
+const VERDICTS = { 완료: "done", 반려: "declined", 넘김: "escalated" };
 
 const ALLOWED_TOOLS = [
   "Read",
@@ -63,6 +70,20 @@ function gitLines(args) {
 }
 
 /**
+ * The verdict line, and the explanation without it. What actually changed wins
+ * over what the run says: a "완료" that touched no files did not build anything,
+ * whatever it claims.
+ */
+function readVerdict(text, fileCount) {
+  const body = (text || "").trim();
+  const matches = [...body.matchAll(/^판정:\s*(완료|반려|넘김)\s*$/gm)];
+  const last = matches[matches.length - 1];
+  let verdict = last ? VERDICTS[last[1]] : fileCount ? "done" : "declined";
+  if (verdict === "done" && !fileCount) verdict = "declined";
+  return { verdict, summary: last ? body.replace(last[0], "").trim() : body };
+}
+
+/**
  * What the run changed, and whether any of it was a guardrail file. A run may
  * leave its work committed on the branch, uncommitted in the worktree, or both,
  * so both are counted — reporting only committed changes made real edits look
@@ -83,9 +104,12 @@ function inspectBranch(name, branch) {
 }
 
 /**
- * A fresh worktree has no dependencies, so `tsc` cannot run inside it. Junctions
- * (cheap on Windows, no copying) point at the real ones so the work can be
- * checked. Done after the run, not before, so the run never gets a path out.
+ * A fresh worktree has no dependencies, so `tsc` cannot run inside it. A junction
+ * (cheap on Windows, no copying) points at the real ones so the work can be
+ * checked. Made after the run, not before, so the run never gets a path out —
+ * and taken down as soon as the check is over, because anything that later
+ * deletes the worktree (`git worktree remove -f`, a hand-cleanup) will walk
+ * straight through a junction and empty the real node_modules behind it.
  */
 function typecheckWorktree(name, log) {
   const worktreeDir = path.join(REPO_DIR, ".claude", "worktrees", name);
@@ -93,9 +117,11 @@ function typecheckWorktree(name, log) {
   if (!fs.existsSync(orchestrator)) return null;
 
   const link = path.join(orchestrator, "node_modules");
+  let linked = false;
   if (!fs.existsSync(link)) {
     try {
       fs.symlinkSync(path.join(REPO_DIR, "orchestrator", "node_modules"), link, "junction");
+      linked = true;
     } catch (err) {
       log(`[dev] could not link node_modules for the check: ${err.message}`);
       return null;
@@ -107,6 +133,15 @@ function typecheckWorktree(name, log) {
   } catch (err) {
     const output = `${err.stdout || ""}${err.stderr || ""}`.trim();
     return { ok: false, output: output.split(/\r?\n/).slice(0, 12).join("\n") };
+  } finally {
+    // rmdir, not rm -r: it unlinks the junction itself and never follows it.
+    if (linked) {
+      try {
+        fs.rmdirSync(link);
+      } catch (err) {
+        log(`[dev] ⚠️ left a node_modules junction behind in ${name}: ${err.message}`);
+      }
+    }
   }
 }
 
@@ -132,14 +167,25 @@ function runDevTask({ id, task, config, log }) {
     // job — doing pointless work quietly is worse than saying no.
     const prompt =
       `${task}\n\n` +
-      "--- 위 요청은 시로(비서 AI)가 보낸 것이고, 시로는 코드를 읽지 못해. 아래를 지켜줘 ---\n" +
-      "1. 먼저 이 요청이 할 만한 일인지 판단해. 이미 되어 있거나, 효과가 없거나, 오히려 나쁘거나, " +
-      "무엇을 원하는지 알 수 없을 만큼 막연하면 **아무것도 바꾸지 말고** 왜 안 했는지 설명만 해줘. " +
-      "억지로 그럴듯한 변경을 만들어내지 마.\n" +
-      "2. 할 만한 일이면 필요한 만큼만 바꿔. 요청에 없는 것까지 손대지 마.\n" +
+      "--- 위 요청은 시로(비서 AI)가 보낸 것이고, 시로는 코드를 읽지 못해. 아래를 지켜줘 ---\n\n" +
+      "네가 못 하는 건 이것뿐이야:\n" +
+      "- 패키지 설치 (npm install 이 없어). package.json 에 새 의존성이 필요한 일.\n" +
+      "- 인터넷 접근 (WebFetch/WebSearch/curl 없음).\n" +
+      "- 서버 접근 (ssh/scp 없음). 서버에 프로그램을 깔아야 하는 일.\n" +
+      "- 배포. 네 결과는 브랜치까지고, 서버에 올리는 건 주인님이 따로 시켜.\n" +
+      "그 밖에는 이 저장소의 코드를 읽고 고치고 커밋하는 게 다 범위 안이야. " +
+      "이미 있는 의존성만 쓴다면 기능 추가든 버그 수정이든 해도 돼.\n\n" +
+      "1. 먼저 셋 중 하나를 정해:\n" +
+      "   - 할 만하고 네가 할 수 있다 → 만든다\n" +
+      "   - 이미 되어 있거나, 효과가 없거나, 오히려 나쁘거나, 무엇을 원하는지 알 수 없을 만큼 막연하다 → 반려\n" +
+      "   - 할 만한데 위에 적은 '못 하는 것' 때문에 네가 못 한다 → 넘김 (주인님이 직접 하도록)\n" +
+      "   할 수 있는 일을 크거나 복잡하다는 이유로 반려하지 마. 억지로 그럴듯한 변경을 만들어내지도 마.\n" +
+      "2. 만들 때는 필요한 만큼만 바꿔. 요청에 없는 것까지 손대지 마.\n" +
       "3. 코드를 바꿨으면 타입 체크로 확인해 (orchestrator: npx tsc --noEmit, avatar: node --check).\n" +
       "4. 끝나면 바꾼 내용을 git 으로 커밋해 (push 는 하지 마).\n" +
-      "5. 마지막에 한국어로 짧게 설명해. 안 한 경우에는 왜 안 했는지가 설명이야.";
+      "5. 한국어로 짧게 설명하고, 맨 마지막 줄에 판정을 정확히 이 형식으로 적어:\n" +
+      "   판정: 완료   /   판정: 반려   /   판정: 넘김\n" +
+      "   넘김이면 무엇이 필요한지 한 줄로 같이 적어 (예: 'X 패키지 설치와 서버 설정이 필요함').";
     const args = [
       "-p",
       prompt,
@@ -216,10 +262,12 @@ function runDevTask({ id, task, config, log }) {
           : `\n\n⚠️ 타입 체크 실패:\n${check.output}`;
 
       if (code === 0 && parsed) {
-        log(`[dev] #${id} finished, ${files.length} file(s), $${parsed.total_cost_usd ?? "?"}`);
+        const { verdict, summary } = readVerdict(parsed.result, files.length);
+        log(`[dev] #${id} ${verdict}, ${files.length} file(s), $${parsed.total_cost_usd ?? "?"}`);
         return done({
           ok: !check || check.ok,
-          summary: `${(parsed.result || "(설명 없음)").slice(0, 1500)}${changed}${checkNote}`,
+          verdict,
+          summary: `${summary.slice(0, 1500) || "(설명 없음)"}${changed}${checkNote}`,
           branch,
           costUsd: typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : null,
           touchedGuardrails,
@@ -230,6 +278,7 @@ function runDevTask({ id, task, config, log }) {
       log(`[dev] #${id} failed with exit ${code}`);
       done({
         ok: false,
+        verdict: "failed",
         summary: `실패했어 (종료 코드 ${code}).\n${why}${changed}`,
         branch: files.length ? branch : null,
         costUsd: parsed && typeof parsed.total_cost_usd === "number" ? parsed.total_cost_usd : null,
