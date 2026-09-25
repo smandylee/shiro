@@ -18,6 +18,25 @@ const FLEE_HEALTH = 14;
 const ENGAGE_RANGE = 3.5;
 // Fists are not a weapon. Without one of these she runs from everything.
 const WEAPONS = /_(sword|axe)$/;
+// How players actually fight: swing, step out of its reach while the weapon
+// recharges, step back in. A sword recharges in 0.625s.
+// Her reach is about 3 blocks and a zombie's is about 2.3, and that gap is the
+// whole trick: hover at the edge of hers and it never gets to swing.
+const ATTACK_REACH = 3.0;
+// Anything closer than this while the weapon is recharging means backing up.
+const SAFE_GAP = 3.6;
+const SWING_INTERVAL_MS = 650;
+// Fists recharge fast enough to swing almost continuously, which would mean
+// standing in its face. Slower on purpose, to leave time to step out.
+const FIST_INTERVAL_MS = 900;
+// Kiting works against one thing at a time. Surrounded, she runs.
+const CROWD = 2;
+// A creeper lights up within three blocks and blows up 1.5s later — but the
+// fuse goes out if she leaves that radius, so backing off far enough after each
+// swing is what makes it survivable rather than a trade.
+const CREEPER_RETREAT_MS = 1100;
+const CREEPER_SAFE_DISTANCE = 5;
+const KITE_TIMEOUT_MS = 20_000;
 // Respawning puts her back at the spawn point, which is where the thing that
 // killed her still is. A moment to get clear beats walking into it again.
 const RESPAWN_GRACE_MS = 6000;
@@ -30,6 +49,13 @@ const HOSTILE = new Set([
 ]);
 // Things to put distance between yourself and instead.
 const AVOID = new Set(["creeper", "warden", "ravager", "evoker", "ender_dragon", "wither"]);
+// Slow things that have to touch her to hurt her. Stepping back out of reach
+// works on these even bare-handed — it is only slow, not dangerous. Archers are
+// not on this list: backing away from an arrow accomplishes nothing.
+const MELEE_MOBS = new Set([
+  "zombie", "husk", "drowned", "zombie_villager", "spider", "cave_spider",
+  "silverfish", "slime", "magma_cube", "vindicator", "zoglin", "hoglin",
+]);
 
 // Close enough to be a problem. Anything further away is scenery: fleeing every
 // skeleton within twelve blocks at night meant she never finished a single
@@ -101,9 +127,102 @@ function installReflexes(bot, { log }) {
     return best;
   };
 
+  const countNear = (names, range) => {
+    let n = 0;
+    for (const entity of Object.values(bot.entities)) {
+      if (!entity || entity === bot.entity || !entity.name) continue;
+      if (names.has(entity.name) && entity.position.distanceTo(bot.entity.position) < range) n += 1;
+    }
+    return n;
+  };
+
+  const clearMovement = () => {
+    for (const control of ["forward", "back", "left", "right", "sprint", "jump"]) {
+      bot.setControlState(control, false);
+    }
+  };
+
+  /**
+   * Is there still ground behind her?
+   *
+   * Backing away from a creeper into a ravine is a worse outcome than the
+   * creeper. Checks the block she would step onto and the one under it.
+   */
+  const canBackUp = () => {
+    const yaw = bot.entity.yaw;
+    // Straight backwards in world space, one step out.
+    const back = bot.entity.position.offset(Math.sin(yaw) * 1.2, 0, -Math.cos(yaw) * 1.2);
+    const floor = bot.blockAt(back.offset(0, -1, 0));
+    const at = bot.blockAt(back);
+    if (!floor || !at) return false;
+    if (floor.name === "air" || floor.name === "cave_air") return false;
+    if (/lava|fire|magma|campfire/.test(floor.name) || /lava|fire/.test(at.name)) return false;
+    return true;
+  };
+
+  /**
+   * Swing, step back, swing again — the way a person fights, rather than
+   * standing inside a zombie trading hits until one of them falls over.
+   */
+  const kite = async (target) => {
+    const isCreeper = target.name === "creeper";
+    if (!enter("치고빠지기", `${target.name}`)) return;
+
+    const interval = canFight() ? SWING_INTERVAL_MS : FIST_INTERVAL_MS;
+    const deadline = Date.now() + KITE_TIMEOUT_MS;
+    let lastSwing = 0;
+    try {
+      while (Date.now() < deadline) {
+        const entity = bot.entities[target.id];
+        if (!entity || !entity.isValid || bot.health <= 0) break;
+
+        const distance = entity.position.distanceTo(bot.entity.position);
+        if (distance > 12) break;
+        // Too hurt to keep trading, or more than one of them: let the tick turn
+        // this into a run.
+        if (bot.health <= FLEE_HEALTH) break;
+        if (countNear(HOSTILE, 6) + countNear(AVOID, 6) >= CROWD) {
+          log("[반사] 둘 이상이라 치고빠지기 그만");
+          break;
+        }
+
+        await bot.lookAt(entity.position.offset(0, entity.height * 0.5, 0), true);
+
+        const ready = Date.now() - lastSwing >= interval;
+        // A creeper has to be left alone long enough for its fuse to die, so it
+        // gets a longer wait and a wider berth than the timer alone would give.
+        const holdBack = isCreeper && Date.now() - lastSwing < CREEPER_RETREAT_MS;
+        const keepAway = isCreeper ? CREEPER_SAFE_DISTANCE : SAFE_GAP;
+
+        if (ready && !holdBack && distance <= ATTACK_REACH) {
+          clearMovement();
+          bot.attack(entity);
+          lastSwing = Date.now();
+        } else if ((!ready || holdBack) && distance < keepAway && canBackUp()) {
+          // Recharging: everything about being close right now is downside.
+          bot.setControlState("forward", false);
+          bot.setControlState("back", true);
+        } else if (ready && !holdBack && distance > ATTACK_REACH) {
+          // Step in only far enough to land one, never past the edge of reach.
+          bot.setControlState("back", false);
+          bot.setControlState("forward", true);
+        } else {
+          clearMovement();
+        }
+
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    } catch (err) {
+      log(`[반사] 치고빠지기 중 오류: ${err.message}`);
+    } finally {
+      clearMovement();
+      leave("치고빠지기");
+    }
+  };
+
   const flee = (from, why) => {
     if (!enter("도망", why)) return;
-    bot.pvp.stop();
+    clearMovement();
     // Invert a goal that would walk toward the threat: the same pathing, run
     // backwards. A plain "walk to a point" would happily route past it.
     bot.pathfinder.setGoal(new goals.GoalInvert(new goals.GoalFollow(from, FLEE_DISTANCE)), true);
@@ -121,32 +240,31 @@ function installReflexes(bot, { log }) {
     if (!bot.entity || bot.isSleeping) return;
     if (Date.now() < state.graceUntil) return;
 
-    // Never punched, whatever she is holding.
-    const scary = nearestOf(AVOID, AVOID_RANGE);
-    if (scary) return flee(scary, `${scary.name} 가 ${scary.position.distanceTo(bot.entity.position).toFixed(1)}칸 앞`);
+    const armed = canFight();
 
-    const hostile = nearestOf(HOSTILE, PANIC_RANGE);
-    if (!hostile) {
-      if (state.reflex === "반격") {
-        bot.pvp.stop();
-        leave("반격");
-      }
-      return;
+    // A creeper is only safe to fight the way people fight one: swing, get out
+    // of the blast radius so the fuse dies, swing again. Without a weapon there
+    // is no swinging, so there is only running.
+    const scary = nearestOf(AVOID, AVOID_RANGE);
+    if (scary) {
+      const distance = scary.position.distanceTo(bot.entity.position);
+      if (scary.name === "creeper" && armed) return void kite(scary);
+      return flee(scary, `${scary.name} 가 ${distance.toFixed(1)}칸 앞`);
     }
 
+    const hostile = nearestOf(HOSTILE, PANIC_RANGE);
+    if (!hostile) return;
+
     const distance = hostile.position.distanceTo(bot.entity.position);
-    const armed = canFight();
     const bleeding = Date.now() - state.lastHurt < RECENTLY_HURT_MS;
 
-    // Already within arm's reach: swing back if that is a fight she can win,
-    // otherwise get out.
+    // Already within arm's reach: fight it properly if she can, otherwise get out.
+    // Bare-handed against something slow is still a fight worth having — it
+    // takes a while, but stepping back out of reach means it never lands a hit.
     if (distance <= ENGAGE_RANGE) {
-      if (armed) {
-        if (enter("반격", `${hostile.name} (${distance.toFixed(1)}칸)`)) bot.pvp.attack(hostile);
-      } else {
-        flee(hostile, `맨손이라 ${hostile.name} 을 피함`);
-      }
-      return;
+      const winnable = armed || (MELEE_MOBS.has(hostile.name) && bot.health > FLEE_HEALTH);
+      if (winnable) return void kite(hostile);
+      return flee(hostile, `${armed ? "" : "맨손이라 "}${hostile.name} 을 피함`);
     }
 
     // Nearby but not on her. Only worth dropping everything for if it is
@@ -167,7 +285,7 @@ function installReflexes(bot, { log }) {
   bot.on("death", () => {
     state.reflex = null;
     state.graceUntil = Date.now() + RESPAWN_GRACE_MS;
-    bot.pvp.stop();
+    clearMovement();
     bot.pathfinder.setGoal(null);
     log("[반사] 죽었다 — 잠깐 가만히 있는다");
   });

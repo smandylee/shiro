@@ -16,7 +16,6 @@ const fs = require("node:fs");
 const path = require("node:path");
 const mineflayer = require("mineflayer");
 const { pathfinder } = require("mineflayer-pathfinder");
-const { plugin: pvp } = require("mineflayer-pvp");
 const { loader: autoEat } = require("mineflayer-auto-eat");
 // No mineflayer-collectblock: on 26.1 it times out on blocks two steps away and
 // reports success without picking anything up. skills.js does those steps itself.
@@ -116,7 +115,9 @@ function connect() {
   };
 
   bot.loadPlugin(pathfinder);
-  bot.loadPlugin(pvp);
+  // No mineflayer-pvp either: it walks up to the target and stands there
+  // trading hits, which is exactly what gets her blown up. reflexes.js swings
+  // and steps back out of reach instead.
   bot.loadPlugin(autoEat);
 
   bot.once("spawn", () => {
