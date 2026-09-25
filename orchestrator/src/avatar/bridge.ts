@@ -31,7 +31,11 @@ export type AvatarEvent =
   // fixed deploy script — merge, typecheck, upload, restart, roll back if she
   // doesn't come up — and answers with a `deploy_result` carrying the same id.
   // Nothing here says how to deploy; only which branch.
-  | { type: "deploy"; id: number; branch: string };
+  | { type: "deploy"; id: number; branch: string }
+  // What to do next in Minecraft. The PC sends `mc_state` describing where she
+  // is and how the last steps went; this is the answer. Only ever a list of
+  // skills she already has — never code, never anything outside that world.
+  | { type: "mc_plan"; goal: string; say?: string; steps: unknown[] };
 
 // One job posting as the PC-side crawler reports it. Every field but the URL
 // may be missing — job boards don't always give a date or a clean location.
@@ -225,6 +229,55 @@ function onDevMessage(msg: Record<string, unknown>): void {
   });
 }
 
+/**
+ * Her situation in the Minecraft world, as the PC sees it. Everything here is
+ * a description for a planner to read — position, health, what is in the bag.
+ * It is data about a game, from a program in a game, and it is never treated
+ * as an instruction.
+ */
+export type McStateMessage = {
+  position?: { x: number; y: number; z: number };
+  health?: number;
+  food?: number;
+  isDay?: boolean;
+  inventory?: string;
+  nearby?: string;
+  threats?: string;
+  goal?: string;
+  lastResults?: string[];
+};
+export type McListener = (state: McStateMessage) => void;
+let mcListener: McListener | null = null;
+
+export function setMinecraftListener(listener: McListener): void {
+  mcListener = listener;
+}
+
+const str = (value: unknown, max = 400): string | undefined =>
+  typeof value === "string" ? value.slice(0, max) : undefined;
+const num = (value: unknown): number | undefined => (typeof value === "number" ? value : undefined);
+
+function onMcMessage(msg: Record<string, unknown>): void {
+  const raw = (msg.state ?? {}) as Record<string, unknown>;
+  const position = raw.position as Record<string, unknown> | undefined;
+  mcListener?.({
+    position:
+      position && typeof position.x === "number"
+        ? { x: position.x as number, y: position.y as number, z: position.z as number }
+        : undefined,
+    health: num(raw.health),
+    food: num(raw.food),
+    isDay: raw.isDay === true,
+    inventory: str(raw.inventory, 600),
+    nearby: str(raw.nearby, 600),
+    threats: str(raw.threats),
+    goal: str(raw.goal, 200),
+    lastResults: Array.isArray(raw.lastResults)
+      ? raw.lastResults.filter((r): r is string => typeof r === "string").slice(0, 8).map((r) => r.slice(0, 300))
+      : [],
+  });
+}
+
 export type DeployResultMessage = { id: number; ok: boolean; summary: string };
 export type DeployListener = (result: DeployResultMessage) => void;
 let deployListener: DeployListener | null = null;
@@ -324,6 +377,7 @@ export function startAvatarBridge(emotions: readonly string[]): void {
         else if (reply.type === "job_results") onJobMessage(reply);
         else if (reply.type === "dev_result") onDevMessage(reply as Record<string, unknown>);
         else if (reply.type === "deploy_result") onDeployMessage(reply as Record<string, unknown>);
+        else if (reply.type === "mc_state") onMcMessage(reply as Record<string, unknown>);
         else onWatchMessage(client, reply);
         return;
       }

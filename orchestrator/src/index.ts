@@ -8,6 +8,7 @@ import { checkProactive } from "./proactive.js";
 import { startWatchCommentary } from "./watch.js";
 import { startVoiceInput } from "./voice.js";
 import { startDevTasks } from "./dev.js";
+import { startMinecraft } from "./minecraft/agent.js";
 import { warmMemory } from "./memory/longterm.js";
 import { setDiscordClient } from "./discord/actions.js";
 import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
@@ -77,6 +78,7 @@ client.once(Events.ClientReady, async (c) => {
   void warmMemory();
   startWatchCommentary(getChannel);
   startDevTasks(getChannel);
+  startMinecraft(getChannel);
   startVoiceInput({
     ownerUserId: OWNER_USER_ID,
     getChannel: async (channelId): Promise<TurnChannel | null> => {

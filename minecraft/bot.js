@@ -21,6 +21,7 @@ const { loader: autoEat } = require("mineflayer-auto-eat");
 // reports success without picking anything up. skills.js does those steps itself.
 const { installReflexes } = require("./reflexes.js");
 const { Skills } = require("./skills.js");
+const { startAgent } = require("./agent.js");
 
 const HOST = process.env.MC_HOST || "127.0.0.1";
 const PORT = Number(process.env.MC_PORT || 25565);
@@ -29,6 +30,8 @@ const USERNAME = process.env.MC_USERNAME || "Shiro";
 // server can be any of them, but letting mineflayer guess means a silent
 // mismatch the day the server updates.
 const VERSION = process.env.MC_VERSION || "26.1";
+// Where the owner can watch her from a browser. 0 turns it off.
+const VIEWER_PORT = Number(process.env.MC_VIEWER_PORT ?? 3007);
 
 const RECONNECT_MIN_MS = 3000;
 const RECONNECT_MAX_MS = 60_000;
@@ -84,6 +87,28 @@ function claimSingleInstance() {
   }
 }
 
+/**
+ * A window on what she is doing, at http://localhost:3007.
+ *
+ * The owner does not play on this server, so without this the only way to see
+ * her was to read the log. Started once per process, not per reconnect — the
+ * viewer's express server would refuse the port the second time.
+ *
+ * Never fatal: a broken viewer is a worse reason to stop playing than no viewer.
+ */
+let viewerStarted = false;
+function startViewer(bot) {
+  if (viewerStarted || !VIEWER_PORT) return;
+  viewerStarted = true;
+  try {
+    require("prismarine-viewer").mineflayer(bot, { port: VIEWER_PORT, firstPerson: false });
+    log(`구경하려면 http://localhost:${VIEWER_PORT} 열어봐`);
+  } catch (err) {
+    viewerStarted = false;
+    log(`화면 보기를 못 켰어: ${err.message}`);
+  }
+}
+
 function connect() {
   log(`접속 시도 ${HOST}:${PORT} (${VERSION}, 이름 ${USERNAME})`);
 
@@ -97,6 +122,7 @@ function connect() {
 
   let skills = null;
   let reflexes = null;
+  let agent = null;
   let setupTimer = null;
   let settled = false;
 
@@ -106,7 +132,9 @@ function connect() {
     // The dead bot's reflexes would otherwise keep ticking forever against a
     // connection that is gone, one stray interval per reconnect.
     clearTimeout(setupTimer);
+    agent?.stop();
     reflexes?.stop();
+    agent = null;
     reflexes = null;
     skills = null;
     log(`${why} · ${Math.round(backoff / 1000)}초 뒤 재시도`);
@@ -130,6 +158,11 @@ function connect() {
       reflexes = installReflexes(bot, { log });
       skills = new Skills(bot, { log, state: reflexes.state });
       log("반사신경과 기술 준비됨");
+      startViewer(bot);
+      // She may have been left in a treetop by whatever she was doing before
+      // the restart, and leaves do not stay there.
+      void skills.descendIfStranded();
+      agent = startAgent({ bot, skills, state: reflexes.state, log });
     }, CHUNK_SETTLE_MS);
   });
 

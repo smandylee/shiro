@@ -15,7 +15,7 @@ const SKILL_TIMEOUT_MS = 90_000;
 // One awkward block shouldn't eat the whole job, and the whole job shouldn't
 // leave the planner waiting minutes for one verb.
 const MINE_BUDGET_MS = 120_000;
-const MOVE_TIMEOUT_MS = 25_000;
+const MOVE_TIMEOUT_MS = 45_000;
 // A little under the server's block-interaction limit, measured from her eyes.
 const REACH = 4.0;
 const DIG_TIMEOUT_MS = 20_000;
@@ -61,6 +61,10 @@ class Skills {
     this.state = state;
     this.mcData = require("minecraft-data")(bot.version);
     this.movements = new Movements(bot, this.mcData);
+    // Pillaring up. Without it she cannot reach anything on a ledge above her,
+    // and standing in a dip with the trees five blocks up is not a rare
+    // accident — it is most of this terrain.
+    this.movements.allow1by1towers = true;
     bot.pathfinder.setMovements(this.movements);
   }
 
@@ -131,8 +135,12 @@ class Skills {
       return { ok: false, detail: `${maxDistance}칸 안에 ${name} 이 없어` };
     }
 
-    const targets = positions.map((p) => this.bot.blockAt(p)).filter(Boolean);
+    const targets = positions
+      .map((p) => this.bot.blockAt(p))
+      .filter(Boolean)
+      .map((b) => this.trunkBase(b));
     let got = 0;
+    let lastProblem = null;
     // A whole-job budget as well as a per-block one: three blocks that each
     // take their full timeout is four minutes of the planner waiting on one verb.
     const deadline = Date.now() + MINE_BUDGET_MS;
@@ -151,10 +159,21 @@ class Skills {
       try {
         if (await this.digOne(target)) got += 1;
       } catch (err) {
-        this.log(`[기술] ${target.name} 캐기 실패: ${err.message}`);
+        // Kept, because it is the answer the planner needs: "couldn't mine it"
+        // and "it is six blocks above me and I have nothing to climb with" call
+        // for completely different next moves.
+        const rise = Math.round(target.position.y - this.bot.entity.position.y);
+        lastProblem =
+          rise >= 2
+            ? `${target.name} 이 ${rise}칸 위에 있는데 올라갈 수가 없어 (쌓을 블록이 없거나 길이 막혔어)`
+            : `${target.name} 까지 못 갔어: ${err.message}`;
+        this.log(`[기술] ${lastProblem}`);
         this.bot.pathfinder.setGoal(null);
       }
     }
+
+    // Whatever happened, do not leave her standing in a treetop.
+    await this.descendIfStranded();
 
     if (got === 0) {
       const sample = this.mcData.blocksByName[targets[0].name];
@@ -164,7 +183,7 @@ class Skills {
         ok: false,
         detail: needsTool
           ? `${name} 은 맞는 도구가 없어서 못 캐. 도구부터 만들어야 해`
-          : `${name} 을 ${targets.length}개 찾았는데 하나도 못 캤어`,
+          : lastProblem ?? `${name} 을 ${targets.length}개 찾았는데 하나도 못 캤어`,
       };
     }
     return { ok: true, detail: `${name} ${got}개 캤어${got < count ? ` (${count}개 하려다 ${got}개)` : ""}` };
@@ -178,6 +197,25 @@ class Skills {
    * still lying on the ground. The three steps underneath it — path, dig, walk
    * over the drop — each work fine, so they are used directly.
    */
+  /**
+   * The bottom of a trunk, given any block of it.
+   *
+   * The nearest log is usually partway up a tree, and there is nowhere to stand
+   * next to it — the whole column is wrapped in leaves, so pathfinding spends
+   * its timeout looking for a foothold that does not exist. The base of the
+   * trunk has ground beside it, and felling from the bottom drops the rest.
+   */
+  trunkBase(block) {
+    if (!/_log$|_stem$/.test(block.name)) return block;
+    let base = block;
+    for (let drop = 1; drop < 16; drop += 1) {
+      const below = this.bot.blockAt(block.position.offset(0, -drop, 0));
+      if (!below || below.name !== block.name) break;
+      base = below;
+    }
+    return base;
+  }
+
   /** Roughly how far she can reach; further than this and she has to walk. */
   inReach(position) {
     return position.distanceTo(this.bot.entity.position.offset(0, 1.6, 0)) <= REACH;
@@ -230,6 +268,37 @@ class Skills {
     await this.withTimeout(this.bot.dig(block), DIG_TIMEOUT_MS, "캐기");
     await this.pickUpNear(target.position);
     return true;
+  }
+
+  /**
+   * Gets down out of a tree.
+   *
+   * Felling a tree means pathing up its trunk, and when the job ends she is
+   * left standing on the canopy. Leaves decay once their log is gone, so she
+   * would eventually drop the whole way to the ground and take the fall.
+   */
+  async descendIfStranded() {
+    const under = this.bot.blockAt(this.bot.entity.position.offset(0, -1, 0));
+    if (!under || !/leaves/.test(under.name)) return;
+
+    let groundY = null;
+    for (let drop = 2; drop < 32; drop += 1) {
+      const block = this.bot.blockAt(this.bot.entity.position.offset(0, -drop, 0));
+      if (!block) break;
+      if (block.name !== "air" && block.name !== "cave_air" && !/leaves/.test(block.name)) {
+        groundY = block.position.y + 1;
+        break;
+      }
+    }
+    if (groundY === null) return;
+
+    this.log(`[기술] 나뭇잎 위라 ${Math.round(this.bot.entity.position.y - groundY)}칸 내려간다`);
+    try {
+      await this.withTimeout(this.bot.pathfinder.goto(new goals.GoalY(groundY)), MOVE_TIMEOUT_MS, "내려가기");
+    } catch (err) {
+      this.bot.pathfinder.setGoal(null);
+      this.log(`[기술] 못 내려왔어: ${err.message}`);
+    }
   }
 
   /** Walks over whatever is lying around; mineflayer picks items up on contact. */
