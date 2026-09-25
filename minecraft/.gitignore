@@ -4,6 +4,9 @@
 # the rest of this machine already depends on.
 server/
 jdk/
+
+# Holds the running bot's process id so a second copy refuses to start.
+.bot.lock
 *.jar
 *.tar.gz
 *.zip
