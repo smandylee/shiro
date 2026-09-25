@@ -1,0 +1,12 @@
+{
+  "name": "shiro-minecraft",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shiro playing Minecraft on her own, through mineflayer.",
+  "scripts": {
+    "bot": "node bot.js"
+  },
+  "dependencies": {
+    "mineflayer": "^4.39.0"
+  }
+}

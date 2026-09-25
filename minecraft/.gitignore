@@ -1,0 +1,9 @@
+# The Paper server lives here but none of it belongs in the repository: the jar
+# is a download, the world is gigabytes of generated terrain, and the JDK is
+# unpacked locally so the server can use Java 25 without touching the Java 17
+# the rest of this machine already depends on.
+server/
+jdk/
+*.jar
+*.tar.gz
+*.zip
