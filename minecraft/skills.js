@@ -265,8 +265,19 @@ class Skills {
     }
 
     await this.equipBestTool(block.name);
+    const before = this.totalItemCount();
     await this.withTimeout(this.bot.dig(block), DIG_TIMEOUT_MS, "캐기");
     await this.pickUpNear(target.position);
+    const gained = this.totalItemCount() - before;
+    if (gained <= 0) {
+      // Broke the block but nothing ended up in the bag. Worth knowing exactly
+      // what was actually sitting there instead of guessing blind.
+      const nearby = Object.values(this.bot.entities)
+        .filter((e) => e && e.position && e.position.distanceTo(target.position) < 8 && e !== this.bot.entity)
+        .map((e) => `${e.name ?? e.displayName ?? e.kind ?? "?"}@${e.position.distanceTo(target.position).toFixed(1)}`);
+      this.log(`[기술] ${block.name} 부쉈는데 못 주웠어. 주변: ${nearby.join(", ") || "아무것도 없음"}`);
+      return false;
+    }
     return true;
   }
 
@@ -337,6 +348,10 @@ class Skills {
 
   countItem(name) {
     return this.bot.inventory.items().filter((i) => i.name === name).reduce((n, i) => n + i.count, 0);
+  }
+
+  totalItemCount() {
+    return this.bot.inventory.items().reduce((n, i) => n + i.count, 0);
   }
 
   /** The nearest table, or one she puts down herself. Most recipes need one. */

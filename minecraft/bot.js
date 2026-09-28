@@ -222,7 +222,13 @@ function connect() {
     }
   }
 
-  bot.on("death", () => log("죽었다. 리스폰 대기"));
+  bot.on("death", () => {
+    log("죽었다. 리스폰한다");
+    // mineflayer defaults to leaving her on the death screen forever unless
+    // something calls this. There is no "respawn: true" option passed to
+    // createBot, so nothing else does it.
+    bot.respawn();
+  });
   bot.on("kicked", (reason) => retry(`서버가 내보냄: ${JSON.stringify(reason).slice(0, 300)}`));
   bot.on("error", (err) => retry(`오류: ${err.message}`));
   bot.on("end", (reason) => retry(`연결 끊김 (${reason})`));
