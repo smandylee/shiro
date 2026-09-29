@@ -51,10 +51,10 @@
 
 ### ★ 팀 채널 — 켜서 처음 돌려보기 (코드만 있고 실행해본 적 없음)
 
-`team-channel` 브랜치. 팀원은 별도 프로젝트(팀 서버 `ai-team`)에 있고 시로는 `team/client.ts`로 HTTP 호출만 한다.
+`team-channel` 브랜치. 팀원은 별도 저장소(팀 서버 [smandylee/aistudio](https://github.com/smandylee/aistudio))에 있고 시로는 `team/client.ts`로 HTTP 호출만 한다.
 설명은 README의 "팀 채널". 해야 할 것:
 1. 디스코드 서버에 팀 채널을 만들고, 채널 설정에서 웹후크를 하나 만들어 URL을 팀 서버에 준다.
-2. 팀 서버를 VM에 올리고 systemd로 띄운다 (아직 저장소/배포 방법 없음 — 정해야 함).
+2. 팀 서버를 VM에 올리고 systemd로 띄운다 (자세한 순서는 aistudio의 `WORKLOG.md`. 서비스 파일은 아직 없음).
 3. VM `/etc/shiro.env`에 `TEAM_CHANNEL_ID`, `TEAM_SERVER_URL`, `TEAM_SERVER_TOKEN`.
 4. Vertex Model Garden에서 Claude Opus 5.5 사용 설정. 팀 서버의 모델 ID는 **문서로만 확인했다** — 404면 팀 서버 `.env`에서 고친다.
 5. 알려진 한계: 팀원 결과는 시로의 대화 기록에 안 남는다(시로의 요약만 남음). 같은 스레드에서 "그 글 더 줄여줘"라고 하면
