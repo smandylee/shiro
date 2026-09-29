@@ -136,6 +136,42 @@ async function sendAsChatBubbles(channel: TurnChannel, text: string) {
 }
 
 /**
+ * For the team channel: her reports there run long, and one bubble per line
+ * with a typing pause each would take a minute to read out. Lines are gathered
+ * into as few messages as fit and sent once she pauses.
+ */
+function batchedSender(channel: TurnChannel) {
+  let buf = "";
+  let timer: NodeJS.Timeout | null = null;
+  let sending: Promise<void> = Promise.resolve();
+
+  const flush = (): Promise<void> => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    if (buf) {
+      const text = buf;
+      buf = "";
+      sending = sending.then(
+        () => channel.send(text).then(() => {}),
+        () => {}
+      );
+    }
+    return sending;
+  };
+
+  const sendLine = async (line: string): Promise<void> => {
+    for (const piece of splitToLimit(line)) {
+      if (buf && buf.length + piece.length + 1 > DISCORD_MAX_MESSAGE_LENGTH) void flush();
+      buf = buf ? `${buf}\n${piece}` : piece;
+    }
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => void flush(), 1500);
+  };
+
+  return { sendLine, flush };
+}
+
+/**
  * Something the owner said out loud. The model is given the audio itself, so it
  * can start answering at once; these say whether it may be shown (a person really
  * was speaking) and what the words were (for the history and her memory).
@@ -163,13 +199,15 @@ export type TurnInput = {
   attachments: Iterable<DiscordAttachment>;
   /** How it arrived, for the log only. */
   via?: "text" | "voice";
+  /** Set when the message is in a team channel thread: Shiro works as the team's PM there. */
+  teamThreadId?: string;
 };
 
 export async function runTurn(input: TurnInput): Promise<void> {
   const { channel, channelId, isOwner, authorId, authorName, content } = input;
   const history = getRecentHistory(channelId, HISTORY_LIMIT);
 
-  console.log(`[DM${isOwner ? "" : " guest"}${input.via === "voice" ? " voice" : ""}] ${authorName}: ${content}`);
+  console.log(`[${input.teamThreadId ? "TEAM" : "DM"}${isOwner ? "" : " guest"}${input.via === "voice" ? " voice" : ""}] ${authorName}: ${content}`);
 
   // Per-stage timing, logged once per reply — replies were taking 15-20s and
   // the model call alone measures ~2s, so the time is going somewhere else.
@@ -210,9 +248,13 @@ export async function runTurn(input: TurnInput): Promise<void> {
   // The reply is shown and voiced as the model writes it: her expression the
   // moment the emotion tag is complete, then each line as a bubble and in her
   // voice as soon as it is finished, instead of after the whole answer.
-  const reply = new StreamedReply((line) => sendAsChatBubbles(channel, line));
+  const batched = input.teamThreadId ? batchedSender(channel) : null;
+  const reply = new StreamedReply(batched ? batched.sendLine : (line) => sendAsChatBubbles(channel, line));
   // Nothing she says to spoken words is shown until a person is confirmed to have spoken.
   if (voice) reply.hold(voice.speech);
+
+  // Teammates can take minutes; keep "typing…" up so the thread doesn't look dead.
+  const keepTyping = input.teamThreadId ? setInterval(() => channel.sendTyping().catch(() => {}), 8000) : null;
 
   let result: { text: string; touchedPersonalData: boolean };
   try {
@@ -226,17 +268,22 @@ export async function runTurn(input: TurnInput): Promise<void> {
       viaVoice: Boolean(voice),
       toolGate: voice?.speech,
       onText: (delta) => reply.push(delta),
+      teamThreadId: input.teamThreadId,
     });
   } catch (err) {
     console.error("gemini chat failed:", err);
     // Lines already on their way finish first, so the apology comes after them.
+    if (keepTyping) clearInterval(keepTyping);
     await reply.abort();
+    await batched?.flush();
     await channel.send("(어... 지금 머리가 잘 안 돌아가네. 잠깐 후에 다시 말 걸어줄래?)");
     return;
   }
 
+  if (keepTyping) clearInterval(keepTyping);
   const tChat = Date.now();
   await reply.finish();
+  await batched?.flush();
   const ms = (v: number | null) => (v === null ? "-" : `${v}ms`);
   console.log(
     `  -> timing: typing=${tTyping - t0}ms attach=${tFiles - tTyping}ms recall=${tRecall - tFiles}ms chat=${tChat - tRecall}ms ` +

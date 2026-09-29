@@ -183,3 +183,28 @@ PC를 켤 때 자동으로 띄우려면 이 명령을 시작프로그램이나 �
 
 ### 비용
 요청 하나에 약 $0.2~0.5 (프로젝트 맥락을 매번 읽기 때문에 짧은 작업도 기본 비용이 붙는다).
+
+## 팀 채널
+
+디스코드 서버에 채널을 하나 만들어두면, 거기서 시로가 **팀장(PM)** 으로 일한다.
+주인님이 채널에 일을 적으면 스레드가 열리고, 시로가 팀원들에게 나눠 맡긴 뒤 결과를 정리해서 보고한다.
+
+| 팀원 | 모델 (Vertex) | 하는 일 |
+|---|---|---|
+| 리서처 | Gemini 3.8 Flash + 구글 검색 | 조사, 비교, 사실 확인 (출처 포함) |
+| 작가 | Claude Opus 5.5 | 블로그·SNS·대본·문서 |
+| 리뷰어 | Gemini 3.1 Pro | 다른 팀원 결과물 검토 |
+| 디자이너 | Nano Banana Pro | 이미지 생성 (스레드에 첨부) |
+| (개발) | 기존 `request_dev_task` | 승인 후 PC의 Claude Code |
+
+- 팀원 결과는 웹후크로 **팀원 이름과 프로필 사진을 달고** 스레드에 올라간다.
+- 팀원은 아무것도 바꾸지 못한다 (조사·글·검토·그림만). 코드는 여전히 승인이 필요한 개발 요청으로만.
+- 서버에서는 **주인님 메시지만, 팀 채널과 그 스레드에서만** 듣는다. 다른 채널·다른 사람은 무시한다.
+- 팀원 정의는 `orchestrator/src/team/members.ts`, 채널·웹후크는 `team/channel.ts`.
+
+### 켜는 법
+1. 서버에 텍스트 채널을 만들고, 봇에 `스레드 만들기`, `스레드에서 메시지 보내기`, `웹후크 관리` 권한을 준다.
+2. `/etc/shiro.env`에 `TEAM_CHANNEL_ID=<채널 ID>`. 없으면 팀 채널은 꺼진다.
+3. Vertex Model Garden에서 Claude Opus 5.5를 사용 설정한다 (Gemini는 설정 불필요).
+4. 모델을 바꾸려면 `TEAM_RESEARCH_MODEL`, `TEAM_WRITER_MODEL`, `TEAM_REVIEW_MODEL`, `TEAM_DESIGN_MODEL`.
+   Claude 리전은 `CLAUDE_VERTEX_REGION` (기본은 `GOOGLE_CLOUD_LOCATION`).

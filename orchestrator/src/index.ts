@@ -12,6 +12,7 @@ import { startMinecraft } from "./minecraft/agent.js";
 import { warmMemory } from "./memory/longterm.js";
 import { setDiscordClient } from "./discord/actions.js";
 import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
+import { TEAM_CHANNEL_ID, teamThreadFor } from "./team/channel.js";
 
 const token = process.env.DISCORD_BOT_TOKEN;
 if (!token) {
@@ -39,6 +40,7 @@ const REMINDER_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`logged in as ${c.user.tag}`);
+  console.log(TEAM_CHANNEL_ID ? `[team] team channel ${TEAM_CHANNEL_ID}` : "[team] TEAM_CHANNEL_ID not set, team channel off");
   setDiscordClient(client);
   // A batch from the PC-side JobSpy crawler, relayed through the avatar; stored
   // for check_jobs to hand out on request, never announced on its own.
@@ -100,9 +102,33 @@ client.once(Events.ClientReady, async (c) => {
   setInterval(runReminderCheck, REMINDER_CHECK_INTERVAL_MS);
 });
 
-client.on(Events.MessageCreate, (message) => {
+client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
-  if (message.guild) return;
+  if (message.guild) {
+    // In a server, Shiro answers only the owner and only in the team channel.
+    if (message.author.id !== OWNER_USER_ID) return;
+    let thread;
+    try {
+      thread = await teamThreadFor(message);
+    } catch (err) {
+      console.error("[team] failed to open a thread:", err);
+      return;
+    }
+    if (!thread) return;
+    runExclusive(thread.id, () =>
+      runTurn({
+        channel: thread,
+        channelId: thread.id,
+        isOwner: true,
+        authorId: message.author.id,
+        authorName: message.author.tag,
+        content: message.content,
+        attachments: message.attachments.values(),
+        teamThreadId: thread.id,
+      })
+    );
+    return;
+  }
 
   const channelId = message.channelId;
   const isOwner = message.author.id === OWNER_USER_ID;

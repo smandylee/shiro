@@ -10,6 +10,7 @@
     "google:authorize": "tsx src/google/authorize.ts"
   },
   "dependencies": {
+    "@anthropic-ai/vertex-sdk": "^0.20.0",
     "@google/genai": "^1.14.0",
     "@pinecone-database/pinecone": "^8.2.0",
     "better-sqlite3": "^13.0.3",

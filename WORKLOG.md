@@ -49,6 +49,17 @@
 
 ## 다음 (우선순위 순)
 
+### ★ 팀 채널 — 켜서 처음 돌려보기 (코드만 있고 실행해본 적 없음)
+
+`team-channel` 브랜치. 설명은 README의 "팀 채널". 해야 할 것:
+1. 디스코드 서버에 팀 채널을 만들고, 봇 권한(스레드 만들기·웹후크 관리) 확인, VM `/etc/shiro.env`에 `TEAM_CHANNEL_ID`.
+2. Vertex Model Garden에서 Claude Opus 5.5 사용 설정. 모델 ID(`gemini-3.8-flash`, `gemini-3.1-pro-preview`,
+   `gemini-3-pro-image-preview`, `claude-opus-5-5`)는 **문서로만 확인했다** — 404가 나면 `TEAM_*_MODEL`로 고친다.
+3. `package.json`이 바뀌었으니(`@anthropic-ai/vertex-sdk`) 자동 배포가 안 된다. 서버에서 `npm install` 후 수동 배포.
+4. 알려진 한계: 팀원 결과는 시로의 대화 기록에 안 남는다(시로의 요약만 남음). 같은 스레드에서 "그 글 더 줄여줘"라고 하면
+   원문 없이 다시 맡기게 된다. 필요하면 결과를 기록에 넣는 방법을 찾는다.
+5. `check_usage`의 원화 추정은 Gemini Flash 단가 기준이라 작가(Claude) 비용은 한참 낮게 나온다.
+
 ### ★ 시로 마인크래프트 — 계획자 실전 확인 + 밤을 넘기기 ← 지금 여기
 
 설계 결정·구조·지킬 것·진행 순서는 전부 **`docs/minecraft.md`** 에 있다. 거기부터 읽는다.
@@ -141,6 +152,13 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 ## 기록
 
 최신이 위.
+
+### 2026-09-29 — 팀 채널: 시로가 PM, 팀원 넷
+
+서버의 팀 채널에서 주인님이 일을 맡기면 스레드가 열리고, 시로가 `ask_team_member`로 리서처(Gemini 3.8 Flash + 검색)·
+작가(Claude Opus 5.5)·리뷰어(Gemini 3.1 Pro)·디자이너(Nano Banana Pro)에게 나눠 맡긴다. 팀원 결과는 웹후크로
+팀원 이름을 달고 스레드에 올라간다. 코드는 계속 `request_dev_task` + 승인. 서버에서는 주인님 말만, 팀 채널에서만 듣는다.
+타입 체크만 통과, 실제 실행은 아직 (이 Mac에선 better-sqlite3가 segfault 나서 로컬 실행도 못 했다).
 
 ### 2026-09-26 — VM 배포, 밀린 기록 정리
 
