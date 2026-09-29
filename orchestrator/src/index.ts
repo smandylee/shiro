@@ -12,7 +12,7 @@ import { startMinecraft } from "./minecraft/agent.js";
 import { warmMemory } from "./memory/longterm.js";
 import { setDiscordClient } from "./discord/actions.js";
 import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
-import { TEAM_CHANNEL_ID, teamThreadFor } from "./team/channel.js";
+import { TEAM_CHANNEL_ID, teamThreadFor } from "./team/client.js";
 
 const token = process.env.DISCORD_BOT_TOKEN;
 if (!token) {

@@ -6,11 +6,6 @@ export function setDiscordClient(c: Client): void {
   client = c;
 }
 
-export function getDiscordClient(): Client {
-  if (!client) throw new Error("discord client not initialized");
-  return client;
-}
-
 export async function sendDirectMessage(userId: string, text: string): Promise<string> {
   if (!client) throw new Error("discord client not initialized");
 
