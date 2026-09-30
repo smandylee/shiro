@@ -1,6 +1,7 @@
 import { db } from "./memory/db.js";
 import { getSetting } from "./memory/settings.js";
 import { listUpcomingEventsRaw } from "./google/calendar.js";
+import { describeError } from "./google/errors.js";
 import { parseEmotionTag } from "./persona.js";
 import { sayAndSpeak } from "./avatar/speak.js";
 
@@ -28,7 +29,7 @@ export async function checkReminders(
     // so ask for more than the handful we actually expect to act on.
     events = await listUpcomingEventsRaw(50);
   } catch (err) {
-    console.error("[reminders] failed to fetch calendar events:", err);
+    console.error("[reminders] failed to fetch calendar events:", describeError(err));
     return;
   }
 

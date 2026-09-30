@@ -15,6 +15,7 @@ import { runApprovedCommand } from "../openclaw/client.js";
 import { proposeCommand, getPendingCommand, markCommand, cancelPending } from "../pc/commands.js";
 import { listUnreadEmails, searchEmails, readEmail } from "../google/gmail.js";
 import { listUpcomingEvents, createEvent, deleteEvent, type Repeat } from "../google/calendar.js";
+import { describeError } from "../google/errors.js";
 import {
   addTodo,
   listOpenTodos,
@@ -1089,7 +1090,9 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
         try {
           return await runTool(call.name!, (call.args as Record<string, unknown>) ?? {}, sessionKey, isOwner, senderId, contactName, turn);
         } catch (err) {
-          console.error(`tool ${call.name} failed:`, err);
+          // Not the error object: a failed Google call carries the request it
+          // made, and the tools are the likeliest place for one to end up here.
+          console.error(`tool ${call.name} failed:`, describeError(err));
           return "작업 실행 중에 오류가 나서 실패했어.";
         }
       })

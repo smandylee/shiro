@@ -7,6 +7,7 @@ import { listOpenTodos, todosDueBy, type Todo } from "./memory/todos.js";
 import { recordUsage } from "./memory/usage.js";
 import { listUpcomingEventsRaw } from "./google/calendar.js";
 import { countRecentUnread, RECENT_UNREAD_CAP } from "./google/gmail.js";
+import { describeError } from "./google/errors.js";
 import { canvasEnabled, describeItem, listUpcomingCanvas, type CanvasItem } from "./canvas/feed.js";
 import { sayAndSpeak } from "./avatar/speak.js";
 import { maybeChat } from "./chatter.js";
@@ -122,7 +123,7 @@ async function gatherBriefing(now: Date): Promise<string> {
         : "오늘 남은 일정: 없음"
     );
   } catch (err) {
-    console.error("[proactive] calendar unavailable:", err);
+    console.error("[proactive] calendar unavailable:", describeError(err));
     lines.push("오늘 일정: 확인 실패");
   }
 
@@ -130,7 +131,7 @@ async function gatherBriefing(now: Date): Promise<string> {
     const fresh = await countRecentUnread(1);
     lines.push(`최근 24시간 동안 새로 온 안 읽은 메일: ${fresh >= RECENT_UNREAD_CAP ? `${RECENT_UNREAD_CAP}통 이상` : `${fresh}통`}`);
   } catch (err) {
-    console.error("[proactive] gmail unavailable:", err);
+    console.error("[proactive] gmail unavailable:", describeError(err));
     lines.push("안 읽은 메일: 확인 실패");
   }
 

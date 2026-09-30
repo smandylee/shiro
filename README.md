@@ -72,6 +72,58 @@ TYPECAST_API_KEY  TYPECAST_VOICE_ID
 
 ---
 
+## 구글 연동 (Gmail · 캘린더 · 드라이브)
+
+VM 의 `~/.openclaw/secrets/` 에 파일이 둘 있다. 둘 다 권한은 `600` 이어야 한다.
+
+```
+google-oauth-client.json   OAuth 클라이언트 (client_id / client_secret)
+google-oauth-token.json    로그인해서 받은 토큰 (refresh_token 이 핵심)
+```
+
+### 토큰이 죽으면
+
+**증상:** 시로가 메일·일정을 못 본다. 로그에 `invalid_grant — Token has been expired or revoked`.
+이제는 토큰이 죽으면 **디스코드 DM 으로 알려준다** (계속 안 되면 하루에 한 번).
+
+**고치는 법 — PC 에서 한 줄:**
+
+```bash
+node tools/google-reauth.js
+```
+
+SSH 터널을 열고 서버에서 인증 스크립트를 돌린 뒤 로그인 창을 띄운다. 로그인과 권한 승인만 직접 하면 된다.
+**재시작은 필요 없다** — 서버가 죽은 토큰을 버리고 다음 확인(5분 안)에 새 파일을 읽는다.
+(`avatar/config.json` 의 `deployHost` / `deployKeyPath` 를 그대로 쓴다.)
+
+### 일주일마다 끊겼던 이유
+
+Google Cloud Console 의 OAuth 동의 화면이 **"테스트"** 상태면 리프레시 토큰이 **7일 만에 만료**된다.
+로그인을 다시 해도 7일짜리를 새로 받을 뿐이라 계속 반복된다. **"프로덕션"으로 게시하면 이 규칙이 빠진다.**
+
+- 콘솔: <https://console.cloud.google.com/auth/audience> → **앱 게시**
+- 게시해도 **검증 신청은 하지 않는다.** 개인용이라 "확인되지 않은 앱" 경고와 사용자 100명 상한만 붙는다.
+  (Gmail 권한은 검증에 몇 달과 보안 심사가 붙는 등급이다.)
+- **게시한 뒤에** 로그인해야 한다. 그 전에 받은 토큰은 계속 7일짜리다.
+- 확인하는 법: 토큰 파일에 `refresh_token_expires_in` 키가 **있으면** 7일짜리, **없으면** 아니다.
+  (키 이름만 본다. 값은 출력하지 않는다.)
+
+게시한 뒤에도 끊기는 경우는 구글 **비밀번호를 바꿨을 때**(Gmail 권한이 든 토큰은 이때 무효가 된다)와
+계정 보안 페이지에서 **권한을 직접 뺐을 때**, 6개월 이상 안 썼을 때뿐이다.
+
+### 로그에 비밀값이 새던 문제 (고쳤다)
+
+구글 호출이 실패하면 에러 객체 전체가 로그에 찍혔는데, 거기에 **요청 본문**이 들어 있다 —
+토큰 갱신 실패라면 `refresh_token` 과 `client_secret` 이 평문으로. 5분마다 실패하는 동안
+로그에 1만 3천 줄이 쌓였다. 지금은 `orchestrator/src/google/errors.ts` 가 두 군데서 막는다.
+
+- 토큰 갱신 실패는 요청이 붙어 있지 않은 `GoogleAuthError` 로 바꿔서 던진다.
+- 어떤 `GaxiosError` 든 로그에 찍으면 한 줄 요약(`Google 400 invalid_grant — ...`)만 나온다.
+
+에러를 로그에 찍을 때는 `console.error(err)` 대신 `describeError(err)` 를 쓴다.
+
+---
+
 ## 아바타는 어떻게 만들어졌나
 
 원본 일러스트 한 장(`avatar/shiro_base.png`, NovelAI)을

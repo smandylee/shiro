@@ -9,6 +9,8 @@ import { startWatchCommentary } from "./watch.js";
 import { startVoiceInput } from "./voice.js";
 import { startDevTasks } from "./dev.js";
 import { startMinecraft } from "./minecraft/agent.js";
+import { setGoogleAuthAlert } from "./google/client.js";
+import { describeError } from "./google/errors.js";
 import { warmMemory } from "./memory/longterm.js";
 import { setDiscordClient } from "./discord/actions.js";
 import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
@@ -75,6 +77,14 @@ client.once(Events.ClientReady, async (c) => {
     return channel?.isSendable() ? channel : null;
   };
 
+  // If the Google token dies, say so in the owner's DM instead of failing
+  // quietly every five minutes until someone notices mail has stopped.
+  setGoogleAuthAlert(async (text) => {
+    const channelId = getSetting("ownerChannelId");
+    const channel = channelId ? await getChannel(channelId) : null;
+    await channel?.send(text);
+  });
+
   void warmMemory();
   startWatchCommentary(getChannel);
   startDevTasks(getChannel);
@@ -89,10 +99,10 @@ client.once(Events.ClientReady, async (c) => {
 
   const runReminderCheck = () => {
     checkReminders(getChannel).catch((err) => {
-      console.error("[reminders] check failed:", err);
+      console.error("[reminders] check failed:", describeError(err));
     });
     checkProactive(getChannel).catch((err) => {
-      console.error("[proactive] check failed:", err);
+      console.error("[proactive] check failed:", describeError(err));
     });
   };
 
