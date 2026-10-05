@@ -219,7 +219,7 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 
 **목소리 v4.** ElevenLabs v4(9/28 출시)로 올렸다 (`eleven_v4`, 서버 배포 완료). 같은 문장 4개를 v3·v4·v4 Turbo 로 뽑아 비교했다
 (`tools/cover/out/voice-compare/`, gitignore). 첫 소리까지 v3 0.7~1.2초, v4 0.75~1.1초, **Turbo 0.16초**. 주인님이 v4 로 확정했고 Turbo 냐 일반이냐는
-고민 중 — `/etc/shiro.env` 에 `ELEVENLABS_MODEL=eleven_v4_turbo` 를 넣고 재시작하면 바뀐다 (코드 변경 없음).
+듣고 품질이 비슷하다고 해서 **Turbo 로 정했다** — 서버 `/etc/shiro.env` 에 `ELEVENLABS_MODEL=eleven_v4_turbo` (코드 변경 없음, 지우면 일반 v4).
 
 **종류별 채널.** Canvas 알림 → 채널 `1556772260449226889`, 일정 리마인더 → `1556772352342368377` (`settings.topicChannels`, 서버에 직접 넣음).
 `getChannel("topic:canvas"|"topic:calendar")` 로 해석하고 주인님 혼자인 서버일 때만, 아니면 집/DM 으로 폴백. 두 채널 모두 해석되는 건 확인했고
