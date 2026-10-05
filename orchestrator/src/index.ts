@@ -11,6 +11,7 @@ import { startDevTasks } from "./dev.js";
 import { startMinecraft } from "./minecraft/agent.js";
 import { setGoogleAuthAlert } from "./google/client.js";
 import { describeError } from "./google/errors.js";
+import { handleGuildMessage } from "./guildchat.js";
 import { warmMemory } from "./memory/longterm.js";
 import { setDiscordClient } from "./discord/actions.js";
 import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
@@ -112,7 +113,12 @@ client.once(Events.ClientReady, async (c) => {
 
 client.on(Events.MessageCreate, (message) => {
   if (message.author.bot) return;
-  if (message.guild) return;
+  if (message.guild) {
+    // Server chat is a different thing from a DM: many people, none of them
+    // necessarily the owner, and she only speaks where it has been switched on.
+    void handleGuildMessage(message);
+    return;
+  }
 
   const channelId = message.channelId;
   const isOwner = message.author.id === OWNER_USER_ID;

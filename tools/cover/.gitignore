@@ -1,0 +1,11 @@
+# Nothing in this folder that is large, downloaded, or somebody else's music
+# belongs in the repository: the virtual environment is gigabytes of PyTorch,
+# and the songs and the covers made from them are copyrighted recordings kept
+# for private listening only.
+venv/
+work/
+out/
+songs/
+*.wav
+*.mp3
+*.flac
