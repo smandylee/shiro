@@ -32,7 +32,7 @@ import { searchWeb } from "../knowledge/websearch.js";
 import { requestScreenCapture } from "../avatar/bridge.js";
 import { muteChatter } from "../chatter.js";
 import { recall } from "../memory/longterm.js";
-import { unseenJobPostings, markAllShown } from "../memory/jobs.js";
+import { unseenJobPostings, markShown, countUnseenJobPostings } from "../memory/jobs.js";
 import {
   proposeDevTask,
   getPendingDevTask,
@@ -804,13 +804,23 @@ async function runTool(
       );
     }
     case "check_jobs": {
-      const jobs = unseenJobPostings();
+      // One page, sized to what fits in a single Discord message. Everything she
+      // is handed here is marked as seen, so handing out more than she will
+      // actually repeat means the rest is gone for good — a crawl is a couple of
+      // hundred postings, not a dozen.
+      const JOBS_PER_CHECK = 10;
+      const jobs = unseenJobPostings(JOBS_PER_CHECK);
       if (jobs.length === 0) return "PC 크롤러가 아직 새로 찾은 공고가 없어. (하루 1~2번만 도니 조금 있다 다시 물어봐줘)";
       const lines = jobs.map(
         (j) => `- [${j.site}] ${j.company} — ${j.title}${j.location ? ` (${j.location})` : ""}${j.datePosted ? ` · ${j.datePosted}` : ""}\n  ${j.jobUrl}`
       );
-      markAllShown();
-      return `아직 안 보여준 공고 ${jobs.length}개:\n${lines.join("\n")}`;
+      markShown(jobs.map((j) => j.jobUrl));
+      const left = countUnseenJobPostings();
+      const notes = ["※ 위 공고는 줄이거나 빼지 말고 전부 그대로 보여줘. 여기 나온 건 이미 '본 것'으로 표시돼서 다시는 안 나와."];
+      if (left > 0) {
+        notes.push(`※ 이것 말고도 ${left}개가 더 남아 있어. 주인님이 더 보여달라고 하면 check_jobs 를 다시 불러서 이어서 보여줘.`);
+      }
+      return [`아직 안 보여준 공고 ${jobs.length}개:`, ...lines, "", ...notes].join("\n");
     }
     case "request_dev_task": {
       if (!isOwner) return "이건 주인님만 쓸 수 있어.";

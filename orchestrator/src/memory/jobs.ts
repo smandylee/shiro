@@ -70,8 +70,9 @@ const selectUnseenStmt = db.prepare(
   "SELECT job_url, title, company, location, date_posted, site FROM job_postings WHERE shown_at IS NULL ORDER BY found_at DESC LIMIT ?"
 );
 const markShownStmt = db.prepare(
-  `UPDATE job_postings SET shown_at = ? WHERE shown_at IS NULL`
+  `UPDATE job_postings SET shown_at = ? WHERE job_url = ? AND shown_at IS NULL`
 );
+const countUnseenStmt = db.prepare("SELECT count(*) AS n FROM job_postings WHERE shown_at IS NULL");
 
 export type StoredJob = {
   jobUrl: string;
@@ -102,7 +103,23 @@ export function unseenJobPostings(limit = 40): StoredJob[] {
   }));
 }
 
-/** Marks every currently-unseen posting as shown, so the next check only returns what's new since. */
-export function markAllShown(): void {
-  markShownStmt.run(Date.now());
+/**
+ * Marks exactly these postings as shown, so the next check moves on to the rest.
+ *
+ * It used to mark everything unseen, which was fine while a crawl produced a
+ * dozen postings and a check handed out forty. A real crawl is a couple of
+ * hundred: handing out forty and marking all of them shown meant the other
+ * hundred and fifty were never seen by anyone, and never would be.
+ */
+export function markShown(jobUrls: string[]): void {
+  const now = Date.now();
+  const mark = db.transaction((urls: string[]) => {
+    for (const url of urls) markShownStmt.run(now, url);
+  });
+  mark(jobUrls);
+}
+
+/** How many postings the owner has not been shown yet. */
+export function countUnseenJobPostings(): number {
+  return (countUnseenStmt.get() as { n: number }).n;
 }
