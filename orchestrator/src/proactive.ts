@@ -70,7 +70,7 @@ export async function checkProactive(getChannel: GetChannel): Promise<void> {
     // them, and the nudge below doesn't repeat them a minute later.
     if (await maybeBrief(now, channelId, channel)) return;
     await maybeNudge(now, channelId, channel);
-    await maybeCanvasNudge(now, channelId, channel);
+    await maybeCanvasNudge(now, channelId, (await getChannel("topic:canvas")) ?? channel);
     // Last, so a nudge sent this tick counts as recent talk and she holds off.
     await maybeChat(now, channelId, channel);
     // Reads the day's conversation once, in the small hours; sends nothing.

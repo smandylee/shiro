@@ -181,6 +181,10 @@ powershell -ExecutionPolicy Bypass -File tools\autostart\install.ps1 -Remove    
 먼저 건네는 말·화면 감상·개발 결과·구글 끊김 알림이 DM 대신 거기로 간다. 보내기 직전마다 그 서버에 아직 주인님뿐인지 다시 확인하고,
 아니면 집을 지우고 DM 으로 돌아간다. 대화 기록은 DM 과 하나라서 기억·프로필 학습은 그대로 이어진다.
 
+**종류별 채널.** `settings.topicChannels` (`{"canvas": "채널ID", "calendar": "채널ID"}`) 에 채널을 적어 두면 Canvas 마감 알림은
+`canvas` 로, 일정 시작 리마인더는 `calendar` 로 간다. 없거나 그 서버에 주인님 말고 사람이 있으면 위의 집(없으면 DM)으로 간다.
+아침 브리핑은 일정·메일·Canvas·할 일이 섞여 있어서 집으로 간다. 바꾸려면 VM 의 `data/memory.sqlite` `settings` 를 고친다 (재시작 불필요).
+
 나머지 서버는 **주인님이 아닌 사람들**의 대화를 다루기 때문에 아래는 전부 일부러 그렇게 만든 것이다:
 
 - **도구도 주인님 정보도 주지 않는다.** 호출에 `tools` 가 없어서, 서버에서 누가 뭘 써도 메일·캘린더·셸·기억에 닿을 길이 없다.

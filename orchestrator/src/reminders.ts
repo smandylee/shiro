@@ -44,7 +44,7 @@ export async function checkReminders(
     const already = isNotifiedStmt.get(event.id);
     if (already) continue;
 
-    const channel = await getChannel(channelId);
+    const channel = (await getChannel("topic:calendar")) ?? (await getChannel(channelId));
     if (!channel) continue;
 
     const minutesUntil = Math.round(msUntil / 60000);

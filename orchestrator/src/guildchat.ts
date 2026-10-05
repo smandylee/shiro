@@ -421,6 +421,33 @@ export async function resolveOwnerHome(client: Client): Promise<string | null> {
   return home.channelId;
 }
 
+export type Topic = "canvas" | "calendar";
+
+/**
+ * A channel the owner has set aside for one kind of thing (settings.topicChannels,
+ * {"canvas": "<channel id>", "calendar": "<channel id>"}). Same rule as the home
+ * channel: only while the owner is the one human in that server, otherwise null
+ * and the caller uses where it would have gone anyway.
+ */
+export async function resolveTopicChannel(client: Client, topic: Topic): Promise<string | null> {
+  const ownerId = process.env.DISCORD_OWNER_USER_ID;
+  let id: unknown;
+  try {
+    id = (JSON.parse(getSetting("topicChannels") ?? "{}") as Record<string, unknown>)[topic];
+  } catch {
+    return null;
+  }
+  if (!ownerId || typeof id !== "string" || !id) return null;
+  try {
+    const channel = await client.channels.fetch(id);
+    if (!channel || channel.isDMBased() || !("guild" in channel)) return null;
+    return (await isOwnerOnlyServer(channel.guild, ownerId)) ? id : null;
+  } catch (err) {
+    console.error("[guild] topic channel " + topic + " unreachable:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 /** Tells the owner when a server stops being only theirs, because that changes what she will do there. */
 async function noteMode(guild: Guild, ownerId: string, mode: "full" | "group"): Promise<void> {
   const before = lastMode.get(guild.id);

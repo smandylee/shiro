@@ -11,7 +11,7 @@ import { startDevTasks } from "./dev.js";
 import { startMinecraft } from "./minecraft/agent.js";
 import { setGoogleAuthAlert } from "./google/client.js";
 import { describeError } from "./google/errors.js";
-import { handleGuildMessage, resolveOwnerHome } from "./guildchat.js";
+import { handleGuildMessage, resolveOwnerHome, resolveTopicChannel, type Topic } from "./guildchat.js";
 import { warmMemory } from "./memory/longterm.js";
 import { setDiscordClient } from "./discord/actions.js";
 import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
@@ -76,7 +76,14 @@ client.once(Events.ClientReady, async (c) => {
   // Everything she starts on her own (reminders, briefings, remarks, dev and
   // voice replies) is addressed to the owner's DM. If the owner lives in their
   // own server now, it goes there instead; the DM stays the history key.
+  // "topic:canvas" / "topic:calendar" name a channel the owner set aside for that
+  // kind of message; null when there is none, so the caller falls back.
   const getChannel = async (channelId: string) => {
+    if (channelId.startsWith("topic:")) {
+      const id = await resolveTopicChannel(client, channelId.slice(6) as Topic);
+      const there = id ? await client.channels.fetch(id).catch(() => null) : null;
+      return there?.isSendable() ? there : null;
+    }
     if (channelId === getSetting("ownerChannelId")) {
       const home = await resolveOwnerHome(client);
       if (home) {
