@@ -5,12 +5,14 @@ import { toSpokenText } from "./typecast.js";
 // voice is a garnish on the Discord reply and must never cost her a message.
 
 const API_URL = "https://api.elevenlabs.io/v1/text-to-speech";
-// eleven_v3 is the model whose Korean came out natural on Hina in listening
-// tests; the older multilingual and turbo models kept a Japanese accent.
-const MODEL = "eleven_v3";
+// eleven_v3 was the first model whose Korean came out natural on Hina; the
+// older multilingual and turbo models kept a Japanese accent. v4 (2026-09-28)
+// replaced it. eleven_v4_turbo starts speaking in ~0.16s against ~0.8s for
+// eleven_v4 and can be switched to with ELEVENLABS_MODEL, no code change.
+const MODEL = process.env.ELEVENLABS_MODEL || "eleven_v4";
 const TIMEOUT_MS = 25_000;
 
-// v3 reads bracketed audio tags as performance directions rather than speech.
+// v3 and v4 read bracketed audio tags as performance directions rather than speech.
 // Only emotions with an unambiguous tag get one; the rest are left to the
 // voice's own delivery. Set ELEVENLABS_EMOTION_TAGS=off to drop them entirely.
 const TAGS: Partial<Record<Emotion, string>> = {
