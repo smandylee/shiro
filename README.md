@@ -124,6 +124,35 @@ Google Cloud Console 의 OAuth 동의 화면이 **"테스트"** 상태면 리프
 
 ---
 
+## PC 에서 시로 켜두기
+
+시로와 이어지는 PC 쪽 프로그램은 셋이다 — **서버로 가는 SSH 터널, 개발 워커, 아바타.**
+크롤러가 모은 취업 공고도 아바타가 켜져 있어야 시로에게 전달된다. 예전엔 전부 손으로 켰고,
+PC 를 껐다 켜면 말없이 끊겼다. 지금은 작업 스케줄러에 등록해뒀다:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\autostart\install.ps1            # 등록 (여러 번 해도 안전)
+powershell -ExecutionPolicy Bypass -File tools\autostart\install.ps1 -Remove    # 제거
+```
+
+| 작업 (`\Shiro\`) | 언제 | 하는 일 |
+|---|---|---|
+| `Up` | 로그온 때 | 터널·개발 워커·아바타를 올린다. 터널과 워커는 끊기면 다시 올린다 |
+| `JobSpy-0900` / `JobSpy-2100` | 매일 09:00 / 21:00 | 취업 공고 크롤러. PC 가 꺼져 있었으면 켜질 때 한 번 돈다 |
+
+- **터널이 필요한 이유:** 서버의 브릿지는 Tailscale 주소(`100.87.102.46:18790`)에만 떠 있는데, 이 PC 에서 거기로는
+  핑만 가고 포트가 막혀 있다. 그래서 SSH 로 돌아간다. `avatar/config.json` 의 `deployHost` / `deployKeyPath` 를
+  배포·재인증 도구와 같이 쓴다. 서버 방화벽은 건드리지 않았다.
+- **아바타는 한 번만 켠다.** 주인님이 닫았다면 일부러 닫은 것이니 다시 켜지 않는다.
+- **로그:** `tools/autostart/shiro-up.log`, `avatar/devworker.log`, `tools/jobspy/crawl.log`
+- **지금 바로 띄우기:** `Start-ScheduledTask -TaskPath '\Shiro\' -TaskName 'Up'`
+- 로그온한 사용자 권한으로만 돈다 (관리자 권한 없음, 비밀번호 저장 없음). 로그아웃하면 같이 멈춘다.
+- **마크 봇과 서버는 아직 안 들어 있다.**
+- **한글이 든 `.ps1` 은 UTF-8 BOM 으로 저장해야 한다.** Windows PowerShell 5.1 은 BOM 이 없으면 파일을 시스템
+  코드페이지(949)로 읽는다. 그러면 한글이 깨지면서 따옴표가 사라져 문법 오류가 난다 (한 번 당했다).
+
+---
+
 ## 아바타는 어떻게 만들어졌나
 
 원본 일러스트 한 장(`avatar/shiro_base.png`, NovelAI)을
@@ -200,7 +229,7 @@ cd avatar
 npm run devworker
 ```
 
-PC를 켤 때 자동으로 띄우려면 이 명령을 시작프로그램이나 작업 스케줄러(로그온 시)에 등록한다.
+로그온할 때 자동으로 뜬다 (`tools/autostart`, 위의 "PC 에서 시로 켜두기" 참고).
 워커가 꺼져 있으면 시로가 승인 단계에서 "아바타가 꺼져 있어서 보낼 수 없어"라고 알려준다.
 기록은 `avatar/devworker.log` 에 남는다.
 

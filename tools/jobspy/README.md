@@ -25,6 +25,15 @@ venv\Scripts\python crawl.py
 
 ## 자동 실행 (Windows 작업 스케줄러)
 
+**한 줄로 하는 방법** — 매일 09:00·21:00 에 돌고, 콘솔 창이 안 뜨고, PC 가 꺼져 있었으면 켜질 때 한 번 돈다:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\autostart\install.ps1
+```
+
+(같은 스크립트가 아바타·개발 워커·서버 터널의 로그온 자동 시작도 등록한다. 공고는 아바타가 켜져 있어야 시로에게 간다.
+자세한 건 최상위 `README.md` 의 "PC 에서 시로 켜두기".) 아래는 손으로 하는 방법이다.
+
 1. **작업 스케줄러** 실행 → **기본 작업 만들기**
 2. 트리거: 매일, 원하는 시각 1~2개 (예: 오전 9시)
 3. 동작: 프로그램 시작
