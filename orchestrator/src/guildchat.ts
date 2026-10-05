@@ -1,4 +1,4 @@
-import { ChannelType, PermissionFlagsBits, Routes, type Guild, type GuildTextBasedChannel, type Message } from "discord.js";
+import { ChannelType, PermissionFlagsBits, Routes, type Client, type Guild, type GuildTextBasedChannel, type Message } from "discord.js";
 import { Type } from "@google/genai";
 import { ai } from "./llm/client.js";
 import { SYSTEM_PROMPT, parseEmotionTag } from "./persona.js";
@@ -375,12 +375,59 @@ async function isOwnerOnlyServer(guild: Guild, ownerId: string): Promise<boolean
   return value;
 }
 
+// --- Where she brings things up on her own ------------------------------------
+
+type OwnerHome = { guildId: string; channelId: string };
+
+function readHome(): OwnerHome | null {
+  try {
+    const raw = getSetting("ownerHome");
+    const v = raw ? (JSON.parse(raw) as OwnerHome) : null;
+    return v && typeof v.guildId === "string" && typeof v.channelId === "string" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remembers the channel in the owner's own server they last talked to her in. */
+function rememberHome(guildId: string, channelId: string): void {
+  const now = readHome();
+  if (now?.guildId === guildId && now.channelId === channelId) return;
+  setSetting("ownerHome", JSON.stringify({ guildId, channelId }));
+  console.log("[guild] owner home is now " + guildId + "/" + channelId);
+}
+
+function forgetHome(guildId?: string): void {
+  const now = readHome();
+  if (!now || (guildId && now.guildId !== guildId)) return;
+  setSetting("ownerHome", "");
+  console.log("[guild] owner home cleared");
+}
+
+/**
+ * Where reminders, briefings and her own remarks should go instead of the DM: the
+ * owner's server channel, but only while the owner is still the one human there.
+ * Checked each time, because what she sends is mail and calendar.
+ */
+export async function resolveOwnerHome(client: Client): Promise<string | null> {
+  const home = readHome();
+  const ownerId = process.env.DISCORD_OWNER_USER_ID;
+  if (!home || !ownerId) return null;
+  const guild = client.guilds.cache.get(home.guildId);
+  if (!guild || !enabledServers().includes(home.guildId) || !(await isOwnerOnlyServer(guild, ownerId))) {
+    forgetHome(home.guildId);
+    return null;
+  }
+  return home.channelId;
+}
+
 /** Tells the owner when a server stops being only theirs, because that changes what she will do there. */
 async function noteMode(guild: Guild, ownerId: string, mode: "full" | "group"): Promise<void> {
   const before = lastMode.get(guild.id);
   lastMode.set(guild.id, mode);
   if (before !== "full" || mode !== "group") return;
   console.log(`[guild] ${guild.name}: no longer only the owner — personal features off`);
+  forgetHome(guild.id);
   try {
     const owner = await guild.client.users.fetch(ownerId);
     await owner.send(
@@ -404,6 +451,7 @@ async function ownerRoom(channel: GuildTextBasedChannel, batch: Message[], direc
   const label = `${channel.guild.name}#${channel.name}`;
   const mine = batch.filter((m) => m.author.id === ownerId);
   if (mine.length === 0) return;
+  rememberHome(channel.guild.id, channel.id);
 
   // Being called by name or mention is an answer in itself; anything else is
   // checked, cheaply, against who the owner seems to be talking to.
@@ -475,6 +523,7 @@ async function ownerCommand(message: Message<true>, action: string): Promise<voi
     );
   } else if (action === "끄기") {
     setServerEnabled(guildId, false);
+    forgetHome(guildId);
     await say("알겠어, 이 서버에선 이제 조용히 있을게.");
   } else {
     await say(
