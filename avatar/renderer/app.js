@@ -2,6 +2,7 @@ import { poseFor, blendPose, EMOTION_POSES } from "./emotions.js";
 import { prepareTail, poseTail, tailBend, drawTail } from "./tail.js";
 import { startListening } from "./mic.js";
 import { setupDrag } from "./drag.js";
+import { createEarFlicks } from "./ears.js";
 
 const EMOTIONS = Object.keys(EMOTION_POSES);
 const TRANSITION_MS = 700;
@@ -54,6 +55,11 @@ let transitionStart = 0;
 let releaseAt = Infinity; // when to fall back to neutral
 
 const blinker = { nextBlink: 2, phase: -1 };
+
+// Ear flicks on top of the emotion's ear angle, in degrees [left, right]: positive
+// is flicked back, i.e. subtracted from earAngle (where positive is perked up).
+const earFlicks = createEarFlicks();
+let earFlick = [0, 0];
 
 // The tail's phase is ACCUMULATED, never computed from the clock. Deriving it
 // as `time * speed` means any change of speed multiplies into a huge jump in
@@ -182,10 +188,10 @@ function applyGroup(group, pose, time, blink) {
       ctx.rotate((head.tilt * Math.PI) / 180);
       break;
     case "ear_l":
-      ctx.rotate((-(pose.earAngle + Math.sin(time * 3.1) * pose.earTwitch) * Math.PI) / 180);
+      ctx.rotate((-(pose.earAngle + Math.sin(time * 3.1) * pose.earTwitch - earFlick[0]) * Math.PI) / 180);
       break;
     case "ear_r":
-      ctx.rotate(((pose.earAngle + Math.sin(time * 2.7 + 1) * pose.earTwitch) * Math.PI) / 180);
+      ctx.rotate(((pose.earAngle + Math.sin(time * 2.7 + 1) * pose.earTwitch - earFlick[1]) * Math.PI) / 180);
       break;
     case "hair_back":
       // Already turning with the head; this is the bit that trails behind it.
@@ -274,6 +280,7 @@ function draw(now) {
 
   const pose = currentPose(now);
   const blink = blinkFactor(pose, dt);
+  earFlick = earFlicks.step(dt, pose, time);
 
   tailPhase += dt * pose.tailSpeed * Math.PI * 2;
   if (tailPhase > Math.PI * 2000) tailPhase -= Math.PI * 2000; // keep the float honest
