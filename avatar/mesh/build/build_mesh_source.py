@@ -13,19 +13,21 @@ for l in m["layers"]:
     if f.startswith("tail") or f.startswith("ears") or f == "mouth.png":
         continue
     im = Image.open(L + f).convert("RGBA")
+    if f == "nose.png":   # the decomposed highlight is a flat white blob; the original has a soft glow
+        t = np.array(im); t[:, :, 3] = (t[:, :, 3] * 0.55).astype(np.uint8); im = Image.fromarray(t, "RGBA")
     c = Image.new("RGBA", (W, H), (0, 0, 0, 0)); c.paste(im, (l.get("x", 0), l.get("y", 0)))
     out = Image.alpha_composite(out, c)
 a = np.array(out)
 a[(a[:, :, 3] > 0) & (a[:, :, 3] < 24)] = 0
-Image.fromarray(a, "RGBA").save("input/shiro_mesh_nomouth.png")
+Image.fromarray(a, "RGBA").save("input/shiro_mesh_nomouth2.png")
 print("source ok")
 
 # 2. rig: nose region covers the whole highlight; mouth area a bit larger for the sprite
 rig = json.load(open("projects/shiro/rig.draft.json"))
 rig["face"]["nose"] = {"cx": 640, "cy": 592, "rx": 52, "ry": 34}
 rig["mouth"]["area"] = {"cx": 642, "cy": 692, "rx": 62, "ry": 38, "angle": 0.0}
-os.makedirs("projects/shiromo_draft", exist_ok=True)
-json.dump(rig, open("projects/shiromo_draft/rig.draft.json", "w"), indent=2)
+os.makedirs("projects/shiromo2_draft", exist_ok=True)
+json.dump(rig, open("projects/shiromo2_draft/rig.draft.json", "w"), indent=2)
 
 # 3. the mouth sprite: the layered avatar's own mouth drawing, cropped with a margin
 mouth = np.array(Image.open(L + "mouth.png").convert("RGBA"))
