@@ -27,7 +27,7 @@
 | `engine.js` | 엔진 번들 (esbuild, 읽을 수 있는 상태). 아래 수정이 들어 있다 |
 | `rig.json` | 눈 윤곽·얼굴 영역·머리카락 가닥 등 리그 |
 | `built/` | 메시 레이어 PNG, `hairmask.png`, 눈웃음 스프라이트 |
-| `build/make_draft.py`, `build/make_smile.py` | 리그 초안과 눈웃음 변형을 만든 스크립트 (경로는 만든 PC 기준) |
+| `build/make_draft.py`, `build/make_smile.py`, `build/build_mesh_source.py` | 리그 초안, 눈웃음 변형, 메시용 원본(꼬리·귀·입 제외)을 만든 스크립트 (경로는 만든 PC 기준) |
 
 ## 엔진에 넣은 수정 (원본 대비)
 
@@ -39,10 +39,13 @@
 - `createMeshAvatar.js` — 위 `complete` 일 때만 눈꺼풀·입 변형을 끄고, 고개를 돌리면 두 홍채가 같은 방향으로
   약간 움직이게 (`TURN_IRIS=4`px, 사시처럼 보이던 것).
 - `renderer.js` — 화면에 안 붙인 캔버스를 위한 고정 크기 (`dataset.fixedSize`).
+- `sprites.js`, `createMeshAvatar.js` — **입은 한 장의 그림을 세로로만 늘이고 줄인다** (`sprites.json` 의 `singleMouth`).
+  엔진 자체의 입은 다른 화풍이라 말을 시작하는 순간 다른 입으로 바뀌어 보였다. 입은 메시용 원본에서 빼고
+  `built/sprites/mouth_a.png` 로 따로 그린다. 말하는 동안은 음량으로 0.25~1.2배, 아닐 때는 1배(표정에 따라 조금 더).
 
 ## 알려진 한계
 
-- 입은 모음별 그림이 없다. 엔진의 셰이더 입 벌림만 쓴다.
+- 입은 모음별 그림이 없다. 한 장을 세로로 스케일할 뿐이다.
 - 눈웃음 그림은 코드로 그렸다. 눈 바깥쪽 끝에 옅은 사각 패치 자국이 약간 남는다.
 - 알파 24 미만의 옅은 픽셀은 지웠다 (엔진이 선명하게 그려서 분홍 점으로 보였다).
 - 한 장짜리 그림의 변형이라 크게 돌리면 입체감이 한계가 있다.

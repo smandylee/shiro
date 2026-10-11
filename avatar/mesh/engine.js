@@ -1232,7 +1232,7 @@ function createSpriteModule(engine, rig) {
       // but no closed eye, say) used to switch the shader off and leave blinks and speech blank.
       complete: {
         eyes: has("eyes_closed") && has("eyes_half"),
-        mouth: Boolean(items.mouth_a && items.mouth_a_half && items.mouth_i && items.mouth_o)
+        mouth: Boolean(sheet.singleMouth && items.mouth_a) || Boolean(items.mouth_a && items.mouth_a_half && items.mouth_i && items.mouth_o)
       },
       /**
        * Show / hide and deform the sprites for this frame.
@@ -1274,6 +1274,15 @@ function createSpriteModule(engine, rig) {
           }
           covered[i] = st.cur !== "open" && k >= 0.999 && Boolean(items[`${st.cur}_${i}`]);
         });
+        if (sheet.singleMouth && items.mouth_a) {
+          const mt2 = items.mouth_a;
+          const open = Math.min(1, Math.max(0, P.mouthOpen ?? 0));
+          const squash = P.speaking ? 0.25 + (1.2 - 0.25) * open : 1 + 0.2 * open;
+          mt2.layer.visible = true;
+          mt2.layer.alpha = 1;
+          place(mt2, P, phys, squash, 1);
+          return { eyes: covered, mouth: "single" };
+        }
         const shape = mouthShape(P.mouthOpen, P.mouthForm, lastShape);
         lastShape = shape;
         const def = shape && MOUTH_SHAPES[shape];
@@ -2394,6 +2403,7 @@ async function createMeshAvatarImpl(canvas, options) {
       P.mouthOpen = motion.P.mouthOpen;
       if (!options.preserveMouthForm || parameters.mouthForm === void 0) P.mouthForm = motion.P.mouthForm;
     }
+    P.speaking = motion.lipOpen !== null;
     const out = expression.apply(P, dt);
     lastParameters = out;
     return out;

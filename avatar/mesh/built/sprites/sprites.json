@@ -1,5 +1,5 @@
 {
-  "build": "7d29c9adc3",
+  "build": "c55b7a551d",
   "layers": {
     "eyes_smile_0": [
       408,
@@ -12,6 +12,13 @@
       477,
       182,
       125
+    ],
+    "mouth_a": [
+      596,
+      670,
+      93,
+      47
     ]
-  }
+  },
+  "singleMouth": true
 }
