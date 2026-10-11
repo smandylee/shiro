@@ -179,8 +179,8 @@ function createRig(rig) {
     const TURN_GAP = 0.1, TURN_STRETCH = 0.15;
     const faceCx = (rig.face.eyeA.cx + rig.face.eyeB.cx) / 2;
     p[0] += (faceCx - rig.face.eyeA.cx) * TURN_GAP * ax * ax * w.eyeA + (faceCx - rig.face.eyeB.cx) * TURN_GAP * ax * ax * w.eyeB;
-    p[0] += ax * (8 * w.nose + 5 * w.mouth) + (x - rig.face.eyeA.cx) * TURN_STRETCH * ax * w.eyeA - (x - rig.face.eyeB.cx) * TURN_STRETCH * ax * w.eyeB - ax * 9 * w.earR + ax * 4 * w.earL - ax * 10 * (w.bunL + w.bunR);
-    p[1] -= ay * (6 * w.nose + 3 * w.mouth);
+    p[0] += ax * (0 * w.nose + 5 * w.mouth) + (x - rig.face.eyeA.cx) * TURN_STRETCH * ax * w.eyeA - (x - rig.face.eyeB.cx) * TURN_STRETCH * ax * w.eyeB - ax * 9 * w.earR + ax * 4 * w.earL - ax * 10 * (w.bunL + w.bunR);
+    p[1] -= ay * (0 * w.nose + 3 * w.mouth);
     p[1] += (y - rig.face.eyeA.cy) * -0.06 * Math.abs(ay) * w.eyeA + (y - rig.face.eyeB.cy) * -0.06 * Math.abs(ay) * w.eyeB;
     applyHead(p, w.head, P, w.turn);
     applyBody(p, y, P, w.chest, w.breath, w.shoulder);

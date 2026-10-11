@@ -39,6 +39,7 @@
 - `createMeshAvatar.js` — 위 `complete` 일 때만 눈꺼풀·입 변형을 끄고, 고개를 돌리면 두 홍채가 같은 방향으로
   약간 움직이게 (`TURN_IRIS=4`px, 사시처럼 보이던 것).
 - `renderer.js` — 화면에 안 붙인 캔버스를 위한 고정 크기 (`dataset.fixedSize`).
+- `rig.js` — 코는 얼굴과 한 덩어리로 움직인다 (원래는 고개를 돌릴 때 좌우 8px, 위아래 6px 더 밀려서 코가 얼굴 위에 떠다녔다).
 - `sprites.js`, `createMeshAvatar.js` — **입은 한 장의 그림을 세로로만 늘이고 줄인다** (`sprites.json` 의 `singleMouth`).
   엔진 자체의 입은 다른 화풍이라 말을 시작하는 순간 다른 입으로 바뀌어 보였다. 입은 메시용 원본에서 빼고
   `built/sprites/mouth_a.png` 로 따로 그린다. 말하는 동안은 음량으로 0.25~1.2배, 아닐 때는 1배(표정에 따라 조금 더).
