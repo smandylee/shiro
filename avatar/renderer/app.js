@@ -3,6 +3,7 @@ import { prepareTail, poseTail, tailBend, drawTail } from "./tail.js";
 import { startListening } from "./mic.js";
 import { setupDrag } from "./drag.js";
 import { createEarFlicks } from "./ears.js";
+import { createMeshFace } from "./meshface.js";
 
 const EMOTIONS = Object.keys(EMOTION_POSES);
 const TRANSITION_MS = 700;
@@ -45,8 +46,13 @@ let config = {
   showBubble: true,
   voice: true,
   voiceVolume: 0.8,
+  // Head and body from the mesh engine (head turns, eyes and mouth follow it); tails and
+  // ears stay layered. false keeps the layered drawing for everything.
+  mesh: true,
 };
 let sheet = null;
+// The mesh engine's face, or null when it is off or could not load.
+let face = null;
 const images = new Map();
 
 let fromPose = poseFor("neutral");
@@ -295,6 +301,12 @@ function draw(now) {
   head.bob += (pose.headBob + idleBob - head.bob) * k;
 
   hairLag += (head.tilt - hairLag) * Math.min(1, dt * 5);
+  if (face) {
+    // The mesh moves its own head; the ears are the layered part, and they follow that.
+    head.tilt = face.rollDegrees();
+    head.bob = 0;
+    hairLag = head.tilt;
+  }
 
   // Speaking: follow the voice between closed and open. Otherwise return to
   // the resting open smile. It snaps open faster than it eases shut, which is
@@ -303,6 +315,10 @@ function draw(now) {
   const mouthTarget = level === null ? 1 : MOUTH_CLOSED + (MOUTH_OPEN - MOUTH_CLOSED) * level;
   const mouthRate = level === null ? 6 : mouthTarget > mouthScale ? 30 : 16;
   mouthScale += (mouthTarget - mouthScale) * (1 - Math.exp(-dt * mouthRate));
+  if (face) {
+    face.setVoice(level);
+    face.update(dt);
+  }
 
   const dpr = window.devicePixelRatio || 1;
   const w = (sheet.canvas.width + PAD.x * 2) * config.scale;
@@ -324,6 +340,8 @@ function draw(now) {
   );
 
   for (const layer of sheet.layers) {
+    // With the mesh face only the tails and ears are drawn here; it draws the rest.
+    if (face && !/^(tail|ears)/.test(layer.file)) continue;
     const img = images.get(layer.file);
     if (!img) continue;
 
@@ -349,6 +367,9 @@ function draw(now) {
     ctx.restore();
   }
 
+  // On top of the tails and ears, where the original stacking has her head and body.
+  if (face) ctx.drawImage(face.canvas, 0, 0, sheet.canvas.width, sheet.canvas.height);
+
   if (showPivots) drawPivots();
 }
 
@@ -356,6 +377,7 @@ function draw(now) {
 
 function setEmotion(next) {
   const name = EMOTIONS.includes(next) ? next : "neutral";
+  face?.setEmotion(name);
   fromPose = currentPose(performance.now());
   toPose = poseFor(name);
   transitionStart = performance.now();
@@ -827,6 +849,14 @@ async function main() {
   } catch (err) {
     setStatus(`이미지를 못 불러왔어: ${err.message}`, "bad");
     return;
+  }
+
+  if (config.mesh !== false && !sheet.flat) {
+    face = await createMeshFace();
+    // The ears roll about the mesh head's pivot, not the layered one, or they would slide
+    // against the head it draws.
+    if (face && sheet.groups.head) sheet.groups.head = { ...sheet.groups.head, pivot: face.headPivot };
+    console.log(face ? "[avatar] head and body: mesh engine" : "[avatar] head and body: layered");
   }
 
   // The window is sized for the default until now; make it fit the size she was left at.
