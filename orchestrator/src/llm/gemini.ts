@@ -54,6 +54,7 @@ import {
   updateFact,
 } from "../memory/profile.js";
 import { moodBlock } from "../memory/mood.js";
+import { duckBlock, startDuck, stopDuck } from "../memory/duck.js";
 import { canvasEnabled, describeItem, listUpcomingCanvas, markCanvasDone } from "../canvas/feed.js";
 
 const MODEL = "gemini-3.7-flash";
@@ -134,6 +135,21 @@ const ownerTools: FunctionDeclaration[] = [
         text: { type: Type.STRING, description: "add/update 할 내용. 한 줄로 짧게." },
       },
       required: ["action"],
+    },
+  },
+  {
+    name: "set_duck_mode",
+    description:
+      "러버덕 모드를 켜거나 끈다. 주인님이 생각이나 고민을 말하면서 정리하고 싶을 때 켠다 (예: '러버덕 해줘', '그냥 들어줘', '생각 좀 정리할래', '내 얘기 좀 들어봐'). " +
+      "켜면 시로가 답이나 충고를 주는 대신 주인님 말을 한 줄로 되돌려 주고 질문 하나씩 던져서 주인님이 스스로 답을 찾게 돕는다. " +
+      "'러버덕 그만', '됐어', '이제 평소처럼' 하면 끈다. 마지막 말 이후 90분이 지나면 알아서 꺼진다. " +
+      "주인님이 자기 자신에 대한 고민을 던졌는데 모드가 꺼져 있으면 켤지 한 번만 가볍게 물어봐도 된다 (강요하지 않고, 거절하면 다시 묻지 않는다). 대답 없이 혼자 켜지는 않는다.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        on: { type: Type.BOOLEAN, description: "true 면 켜고, false 면 끈다." },
+      },
+      required: ["on"],
     },
   },
   {
@@ -726,6 +742,14 @@ async function runTool(
       }
       return "action은 add, update, remove 중 하나여야 해.";
     }
+    case "set_duck_mode": {
+      if (args.on === false) {
+        stopDuck();
+        return "러버덕 모드 껐어. 이제 평소처럼 말할게.";
+      }
+      startDuck();
+      return "러버덕 모드 켰어. 이제 답을 주기보다 들어주고 물어볼게. (말이 90분 없으면 알아서 꺼져)";
+    }
     case "mute_chatter": {
       const hours = Math.min(Math.max(Number(args.hours) || 0, 0), 24 * 30);
       const until = muteChatter(hours);
@@ -994,6 +1018,7 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
         `주인님이 "내가 뭐 좋아하는지 알아?"처럼 직접 물으면 show_profile로 확인하고 답한다.]\n${profile}`;
     }
     systemInstruction += moodBlock();
+    systemInstruction += duckBlock();
   }
   if (!isOwner) {
     systemInstruction += contactName
