@@ -1,7 +1,8 @@
 import { db } from "./db.js";
 
-// Things Shiro has become curious about — from what the owner said, or from
-// gaps in what she knows about them — waiting for a natural moment to ask.
+// Things Shiro has become curious about — from what the owner said, from
+// gaps in what she knows about them, or just on her own (see wonder.ts) —
+// waiting for a natural moment to ask.
 // They pile up here after conversations and are asked (or dropped) later.
 
 db.exec(`
@@ -15,7 +16,7 @@ db.exec(`
   );
 `);
 
-export type CuriositySource = "conversation" | "profile";
+export type CuriositySource = "conversation" | "profile" | "spontaneous";
 export type Curiosity = { id: number; text: string; source: CuriositySource; created_at: number };
 
 const MAX_OPEN = 12;

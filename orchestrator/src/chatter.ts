@@ -17,6 +17,7 @@ import { addCuriosity, markAsked, openCuriosities, recentlyAsked, type Curiosity
 import { recordUsage } from "./memory/usage.js";
 import { sayAndSpeak } from "./avatar/speak.js";
 import { isWatching } from "./watch.js";
+import { maybeWonder } from "./wonder.js";
 
 // Shiro asking the owner things because she is actually curious.
 //
@@ -79,14 +80,20 @@ export async function maybeChat(now: Date, channelId: string, channel: SendableC
   if (isWatching()) return;
   if (Number(getSetting("chatterMutedUntil") ?? 0) > now.getTime()) return;
 
-  const waiting = openCuriosities();
-  if (waiting.length === 0) return;
-
   const last = getLastTurn(channelId);
   if (last && now.getTime() - last.at < OWNER_IDLE_MS) return;
   // A question she asked on her own is still unanswered: don't pile another on
   // top, however long ago it was. It stays quiet until the owner writes again.
   if (hasUnansweredQuestion(channelId)) return;
+
+  let waiting = openCuriosities();
+  if (waiting.length === 0) {
+    // Nothing left over from conversation. Rather than say nothing until the owner
+    // happens to give her something to wonder about, she may think of her own.
+    if (!(await maybeWonder(now))) return;
+    waiting = openCuriosities();
+    if (waiting.length === 0) return;
+  }
 
   if (now.getTime() - Number(getSetting("chatterCheckedAt") ?? 0) < RECONSIDER_MS) return;
   setSetting("chatterCheckedAt", String(now.getTime()));
