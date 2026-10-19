@@ -23,9 +23,11 @@ import { recordUsage } from "./memory/usage.js";
 const MODEL = "gemini-3.7-flash";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 
-// A cost and annoyance control: she is not meant to have a new idea every hour.
-const MIN_GAP_MS = Number(process.env.SHIRO_WONDER_GAP_HOURS ?? 4) * 60 * 60 * 1000;
-const DAILY_MAX = Number(process.env.SHIRO_WONDER_DAILY_MAX ?? 4);
+// How soon after one idea she may have the next. There is no daily limit: she
+// cannot ask a second question while the first is unanswered (chatter.ts), so
+// how often she asks is up to how often the owner answers. This only keeps her
+// from thinking up a new one the moment the last one is gone.
+const MIN_GAP_MS = Number(process.env.SHIRO_WONDER_GAP_MIN ?? 30) * 60 * 1000;
 // After a failed attempt (the model was busy), try again soon rather than after MIN_GAP_MS.
 const RETRY_MS = 10 * 60 * 1000;
 // A theme is not used again until this many others have been.
@@ -102,23 +104,15 @@ async function askModel(prompt: string): Promise<string | null> {
   }
 }
 
-function localDay(ms: number): string {
-  return new Date(ms).toLocaleDateString("en-CA", { timeZone: TZ });
-}
-
-/** Whether she may come up with a new one now: far enough from the last, and not too many today. */
-export function mayWonder(now: number, lastAt: number, triedAt: number, today: { day: string; count: number }): boolean {
-  if (now - triedAt < RETRY_MS) return false;
-  if (now - lastAt < MIN_GAP_MS) return false;
-  if (today.day === localDay(now) && today.count >= DAILY_MAX) return false;
-  return true;
+/** Whether she may come up with a new one now: not right after the last, nor right after a failed try. */
+export function mayWonder(now: number, lastAt: number, triedAt: number): boolean {
+  return now - triedAt >= RETRY_MS && now - lastAt >= MIN_GAP_MS;
 }
 
 /** Makes up one thing to ask and puts it on her list. Returns whether it did. */
 export async function maybeWonder(now: Date, generate: Generate = askModel): Promise<boolean> {
   const t = now.getTime();
-  const countToday = { day: getSetting("wonderDay") ?? "", count: Number(getSetting("wonderCount") ?? 0) };
-  if (!mayWonder(t, Number(getSetting("wonderAt") ?? 0), Number(getSetting("wonderTriedAt") ?? 0), countToday)) return false;
+  if (!mayWonder(t, Number(getSetting("wonderAt") ?? 0), Number(getSetting("wonderTriedAt") ?? 0))) return false;
   setSetting("wonderTriedAt", String(t));
 
   let recentThemes: string[] = [];
@@ -145,10 +139,7 @@ export async function maybeWonder(now: Date, generate: Generate = askModel): Pro
   }
   if (!text || !addCuriosity(text, "spontaneous")) return false;
 
-  const today = localDay(t);
   setSetting("wonderAt", String(t));
-  setSetting("wonderDay", today);
-  setSetting("wonderCount", String(countToday.day === today ? countToday.count + 1 : 1));
   setSetting("wonderThemes", JSON.stringify([...recentThemes, theme.id].slice(-THEME_MEMORY)));
   console.log(`[wonder] she wondered (${theme.label}): ${text}`);
   return true;
