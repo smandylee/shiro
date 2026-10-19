@@ -5,7 +5,6 @@ import { addTurn, getRecentHistory } from "./memory/shortterm.js";
 import { remember, recall } from "./memory/longterm.js";
 import { getContact } from "./memory/contacts.js";
 import { noteOwnerTurn } from "./memory/mood.js";
-import { keepDuck } from "./memory/duck.js";
 import type { VoiceAudio } from "./avatar/bridge.js";
 
 // One exchange: something the owner (or a guest) said, and Shiro's answer to
@@ -263,10 +262,7 @@ export async function runTurn(input: TurnInput): Promise<void> {
   const raw = result.text;
   const { emotion, text } = parseEmotionTag(raw);
   console.log(`  -> emotion=${emotion} text=${text}`);
-  if (isOwner) {
-    noteOwnerTurn(emotion);
-    keepDuck();
-  }
+  if (isOwner) noteOwnerTurn(emotion);
 
   addTurn(channelId, "user", said);
   addTurn(channelId, "model", raw);
