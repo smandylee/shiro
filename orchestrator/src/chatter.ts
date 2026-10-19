@@ -12,6 +12,7 @@ import {
 } from "./memory/shortterm.js";
 import { recall } from "./memory/longterm.js";
 import { listFacts, renderProfile } from "./memory/profile.js";
+import { moodBlock } from "./memory/mood.js";
 import { addCuriosity, markAsked, openCuriosities, recentlyAsked, type Curiosity } from "./memory/curiosity.js";
 import { recordUsage } from "./memory/usage.js";
 import { sayAndSpeak } from "./avatar/speak.js";
@@ -230,7 +231,7 @@ async function decide(
         },
       ],
       config: {
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: SYSTEM_PROMPT + moodBlock(),
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,

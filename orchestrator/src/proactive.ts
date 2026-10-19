@@ -12,6 +12,8 @@ import { canvasEnabled, describeItem, listUpcomingCanvas, type CanvasItem } from
 import { sayAndSpeak } from "./avatar/speak.js";
 import { maybeChat } from "./chatter.js";
 import { maybeLearnProfile } from "./memory/profile-learn.js";
+import { maybeReflectOnDay } from "./memory/mood-learn.js";
+import { moodBlock } from "./memory/mood.js";
 
 // Shiro speaking first: a morning briefing and nudges for overdue to-dos. Both
 // go out as a Discord DM and, when the avatar is up, in her voice. Nothing here
@@ -75,6 +77,7 @@ export async function checkProactive(getChannel: GetChannel): Promise<void> {
     await maybeChat(now, channelId, channel);
     // Reads the day's conversation once, in the small hours; sends nothing.
     await maybeLearnProfile(now, channelId);
+    await maybeReflectOnDay(now, channelId);
   } finally {
     running = false;
   }
@@ -289,7 +292,7 @@ async function compose(instruction: string, data: string): Promise<string | null
           ],
         },
       ],
-      config: { systemInstruction: SYSTEM_PROMPT },
+      config: { systemInstruction: SYSTEM_PROMPT + moodBlock() },
     });
 
     const u = res.usageMetadata;
