@@ -1019,7 +1019,13 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
   const declarations = isOwner ? ownerTools : guestTools;
   const tools: Tool[] = [{ functionDeclarations: opts.viaVoice && isOwner ? [...declarations, recallMemoryTool] : declarations }];
 
-  const config = { systemInstruction, tools };
+  // Spoken words are mostly short talk, and every second here is a second of silence
+  // in the owner's ear: measured, thinking added ~2s to the first word (about 4s
+  // against 2s). Typed messages keep it — the tool-heavy work (several events at
+  // once, "did I really call it?") is where deliberating earns its keep, and what is
+  // risky by voice is already confirmed first (see the viaVoice note above).
+  const thinking = opts.viaVoice ? { thinkingConfig: { thinkingBudget: 0 } } : {};
+  const config = { systemInstruction, tools, ...thinking };
 
   // Usage is summed across every round, since the cost of one Discord message
   // is the whole loop, not the last call.
@@ -1164,7 +1170,7 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
     }
 
     // Withhold the tools so the model has to reply in words instead of looping.
-    response = await generateRound(contents, { systemInstruction }, emitter());
+    response = await generateRound(contents, { systemInstruction, ...thinking }, emitter());
     tally(response);
   }
 
