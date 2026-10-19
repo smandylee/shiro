@@ -65,6 +65,18 @@ export function getTurnsAfter(
   return rows.map((r) => ({ id: r.id, role: r.role, text: r.text, at: r.created_at }));
 }
 
+const selectFirstSince = db.prepare("SELECT MIN(id) AS id FROM turns WHERE channel_id = ? AND created_at >= ?");
+
+/**
+ * The `afterId` that makes getTurnsAfter start at the first turn from `sinceMs`
+ * on — for a reader that has never read this channel and shouldn't begin with
+ * its oldest history. When nothing is that recent, nothing will be returned.
+ */
+export function turnIdBefore(channelId: string, sinceMs: number): number {
+  const row = selectFirstSince.get(channelId, sinceMs) as { id: number | null };
+  return row.id === null ? Number.MAX_SAFE_INTEGER : row.id - 1;
+}
+
 /** The owner's side of a turn in which Shiro started the conversation with a question. */
 export const ASKED = "(시로가 먼저 질문했어)";
 // Stand-ins the system writes for turns Shiro opened (a question, a briefing, a

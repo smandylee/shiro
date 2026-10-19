@@ -1,7 +1,7 @@
 import { Type } from "@google/genai";
 import { ai } from "../llm/client.js";
 import { getSetting, setSetting } from "./settings.js";
-import { getTurnsAfter } from "./shortterm.js";
+import { getTurnsAfter, turnIdBefore } from "./shortterm.js";
 import { recordUsage } from "./usage.js";
 import { applyReflection, type Reflection } from "./mood.js";
 import { MAX_NOTE_LENGTH } from "./mood-core.js";
@@ -18,6 +18,7 @@ const REFLECT_HOUR = Number(process.env.SHIRO_MOOD_HOUR ?? 4);
 // A couple of "안녕"s leave nothing to carry over.
 const MIN_NEW_TURNS = Number(process.env.SHIRO_MOOD_MIN_TURNS ?? 4);
 const MAX_TURNS_READ = 200;
+const FIRST_LOOKBACK_MS = 24 * 3600 * 1000;
 
 // Stand-ins the system writes into the history (she spoke first, and so on):
 // not something the owner said.
@@ -40,7 +41,10 @@ export async function maybeReflectOnDay(now: Date, ownerChannelId: string): Prom
 
   running = true;
   try {
-    const lastId = Number(getSetting("moodLastTurnId") ?? 0);
+    // The first time, start from the last day: from the beginning she would read the
+    // oldest 200 turns and then crawl through years of history one night at a time.
+    const saved = getSetting("moodLastTurnId");
+    const lastId = saved !== undefined ? Number(saved) : turnIdBefore(ownerChannelId, now.getTime() - FIRST_LOOKBACK_MS);
     const turns = getTurnsAfter(ownerChannelId, lastId, MAX_TURNS_READ);
     if (turns.filter((t) => t.role === "user" && !SYSTEM_NOTES.test(t.text)).length < MIN_NEW_TURNS) return;
 
