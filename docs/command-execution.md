@@ -62,11 +62,37 @@ feature off.
 
 ## Where the commands run
 
-**On the machine that hosts the gateway.** The default address is `127.0.0.1`, which is the same machine as the
-orchestrator — your server, if that is where she runs. If you want commands to run on your own PC, run the gateway
-there and let the orchestrator reach it over a private network, or use OpenClaw's own mechanisms for running tools
-on another machine (see its docs). Think about this before you say yes to the first command: "the PC" and "the
-server" are very different places to run `rm`.
+That is decided in **OpenClaw's configuration, not in Shiro**, and it is the single most important thing to set
+deliberately. Two common setups:
+
+- **On the gateway's own machine** (the default): the agent's `exec` tool runs commands on the host that runs the
+  gateway — your server, if that is where Shiro lives.
+- **On a paired node** — for example your own PC. OpenClaw lets a companion device pair with the gateway as a *node*,
+  and `exec` can be bound to it:
+
+  ```json5
+  {
+    tools: {
+      exec: {
+        host: "node",            // run on a paired node instead of on the gateway
+        node: "<your node's name>",
+        security: "allowlist",   // or "full"; see below
+        ask: "on-miss",          // what happens for a command that is not allowlisted
+      },
+    },
+  }
+  ```
+
+  The author's setup is this one: the gateway runs on the always-on server next to Shiro, and commands run on the
+  author's PC. Shiro does not know the difference; she posts the approved command to the gateway either way.
+
+Think about this before you say yes to the first command: "the PC" and "the server" are very different places to run
+`rm`. Pairing a node, its supported platforms and its command policy are in OpenClaw's
+[nodes documentation](https://docs.openclaw.ai/nodes).
+
+`security: "full"` lets that host run anything the account can; `"allowlist"` limits it to commands you have listed,
+and OpenClaw's exec-approvals file sets the fallback for the rest (the sensible default is to deny). Either way,
+Shiro's own approval comes first.
 
 ## Safety, honestly
 
@@ -77,7 +103,7 @@ server" are very different places to run `rm`.
   the approved text and nothing else, but the agent is a language model. The real limits are the permissions and
   sandboxing you configure in OpenClaw. Give it as little as the job needs.
 - **Keep the gateway for this.** Do not point Shiro at a gateway that also has powers, accounts or channels you
-  would not want a mistaken command to touch.
+  would not want a mistaken command to touch. Whatever host `exec` is bound to is what a mistaken command can touch.
 - Read the command every time. The approval is only as good as your reading of it.
 
 ## Not using OpenClaw
