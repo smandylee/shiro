@@ -33,6 +33,23 @@ node tools/compare.mjs 400 400 900 800 # original vs. layered composite, side by
 
 The output lands in `avatar/layers/_*.png` (git-ignored).
 
+### Recording a demo GIF
+
+`tools/record-demo.mjs` records the **real renderer** — not a mock-up — without starting Electron. The renderer only
+needs the `window.shiro` object that Electron's preload script provides, so the tool serves the folder from a tiny
+local server that adds a do-nothing stand-in, opens the page in headless Chrome, clicks through the emotions of the
+control panel and turns the screenshots into a GIF with ffmpeg:
+
+```bash
+cd avatar
+npm install --no-save puppeteer-core     # once; it is not a dependency of the app
+node tools/record-demo.mjs               # writes docs/images/shiro-demo.gif
+```
+
+It needs Chrome (set `CHROME_PATH` if it is not in the usual place) and `ffmpeg` on your PATH. Run it on a machine
+with a GPU: with software rendering it captures about one frame every two seconds. Re-run it whenever the rig or the
+expressions change, so the picture in the README stays true.
+
 ## The rig
 
 | Part | How it moves |

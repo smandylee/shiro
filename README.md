@@ -8,10 +8,10 @@ while a transparent, always-on-top avatar on your desktop moves her tail, ears a
 what she feels.
 
 <p align="center">
-  <img src="docs/images/shiro.png" alt="Shiro, the avatar" width="360">
-  &nbsp;&nbsp;
-  <img src="docs/images/tail-sway.gif" alt="Offline preview of the tail bending: only the tail moves" width="300">
+  <img src="docs/images/shiro-demo.gif" alt="The real avatar renderer cycling through emotions" width="420">
 </p>
+<p align="center"><sub>The actual avatar, recorded from its renderer. Every reply carries an
+<code>[emotion:xxx]</code> tag and the avatar turns it into a pose: eyes, ears, tail and head.</sub></p>
 
 > **Heads-up before you clone**
 >

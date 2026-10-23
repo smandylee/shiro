@@ -52,6 +52,7 @@ tools/          deploy(배포 스크립트), jobspy(채용 크롤러), autostart
 cd orchestrator && npm start     # tsx src/index.ts
 cd avatar && npm start           # electron .
 cd avatar && node tools/preview-tail.mjs 34 3 5   # Electron 없이 그림으로 확인
+cd avatar && node tools/record-demo.mjs          # 진짜 렌더러를 크롬으로 녹화해 README 용 GIF 로 (puppeteer-core·ffmpeg 필요)
 ```
 
 테스트 스위트는 없다. 아바타 변경은 `tools/preview-*.mjs`로 렌더해서 눈으로 확인한다.
