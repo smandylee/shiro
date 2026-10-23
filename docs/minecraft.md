@@ -1,72 +1,59 @@
-# 시로 마인크래프트 — 설계 결정과 작업 지시
+# Minecraft: design notes
 
-2026-09-25에 주인님과 정한 내용. 이 파일만 읽고 바로 개발을 시작할 수 있게 적었다.
-시작 전에 `CLAUDE.md`와 `WORKLOG.md`도 함께 읽는다.
+Shiro plays Minecraft (Java Edition) **on her own**. The owner does not join the server: she sets her own goals,
+survives, and plays; the owner sees what she is doing through a first-person viewer, her avatar's emotions and
+Discord. How to run the bot is in [`minecraft/README.md`](../minecraft/README.md); this document is why it is built
+the way it is.
 
-## 목표
+## Decisions
 
-시로가 **혼자 알아서** 마인크래프트(Java)를 플레이한다.
-주인님은 서버에 들어가지 않는다. 시로 혼자 목표를 잡고, 생존하고, 논다.
-주인님은 시점 뷰어·아바타 감정·디스코드 대화로 시로가 뭘 하는지 본다.
-
-## 정해진 것
-
-| 항목 | 결정 | 이유 |
+| Topic | Decision | Why |
 |---|---|---|
-| 에디션 | Java, **바닐라** | 봇 라이브러리 mineflayer가 Java만 제대로 지원 |
-| 모드팩 | **안 함** | Forge/NeoForge는 핸드셰이크를 못 넘고, 새 블록·아이템을 추가하는 모드는 봇이 인식하지 못함. Paper 플러그인·데이터팩·서버 전용 모드는 괜찮음 |
-| 버전 | **26.1 계열** | 최신은 26.3이지만 mineflayer 4.39.0의 `testedVersions` 마지막이 `26.1`. 26.1.2가 26.1과 프로토콜이 같으면 26.1.2, 아니면 26.1 |
-| 서버 | Paper, **이 컴퓨터(마크 전용 PC)**에서 | VM에는 올리지 않음. PC가 꺼져 있으면 시로도 마크를 못 한다 — 주인님이 받아들인 한계 |
-| 계정 | **오프라인 모드** (`online-mode=false`), 계정 없이 이름만 | 주인님 계정 토큰을 디스크에 남기지 않음 |
-| 네트워크 | 서버는 **`127.0.0.1`에만 바인딩**, 포트를 외부에 열지 않음 | 오프라인 모드는 아무 이름으로나 접속할 수 있으므로 로컬 전용이어야 안전함 |
-| Java | **Java 25**가 필요 (26.x 요구사항). 서버를 돌리는 이 PC에만 설치 | 개발용 맥에는 Java가 없어도 됨 |
+| Edition | Java, **vanilla** | The bot library, mineflayer, only really supports Java. |
+| Modpacks | **No** | Forge/NeoForge modpacks fail the handshake, and mods that add blocks or items make the bot misread the world. Paper plugins, datapacks and server-only mods are fine. |
+| Version | **26.1 line** | The newest is 26.3, but the last version mineflayer 4.39.0 lists as tested is `26.1`. 26.1.2 shares 26.1's protocol, so the server runs 26.1.2 and the bot pins `26.1`. |
+| Server | Paper, **on the PC that plays**, not on the always-on server | If the PC is off, Shiro cannot play Minecraft — an accepted limit. |
+| Account | **Offline mode** (`online-mode=false`), just a name | No Microsoft account token is ever stored on disk. |
+| Network | The server binds to **`127.0.0.1` only**; the port is never forwarded | Offline mode lets anyone join under any name, so it must be local. |
+| Java | **Java 25** (required by 26.x), installed only where the server runs | |
 
-## 구조
+## Architecture
 
 ```
-[Paper 서버] ←mineflayer→ [PC: minecraft 워커] ←브릿지 WS(:18790)→ [VM: 시로 본체/Gemini]
-                              ├ 반사신경 (코드, LLM 없음): 먹기·도망·반격·밤에 자기
-                              ├ 기술 라이브러리: 캐기·제작·건축·이동(pathfinder)
-                              └ prismarine-viewer: localhost:3007 에서 시로 시점
-                                                                      ├ 목표 정하기 (몇 분마다 + 사건 발생 시)
-                                                                      ├ 게임 채팅 대답
-                                                                      └ 감정 → 아바타, 사건 → 장기기억
+[Paper server] <-mineflayer-> [PC: bot] <-bridge WebSocket-> [server: orchestrator + Gemini]
+                                 |- reflexes (plain code, no LLM): eat, flee, fight back, go to bed
+                                 |- skills: mine, craft, equip tools, move (pathfinder)
+                                 `- prismarine-viewer: her point of view on localhost:3007
+                                                                      |- picks goals (every few minutes, or on an event)
+                                                                      |- answers in-game chat
+                                                                      `- emotion -> avatar, events -> long-term memory
 ```
 
-- **두 층으로 나눈다.** 매 틱마다 LLM을 부르지 않는다. 살아남는 반응은 워커 코드가 즉시 처리하고,
-  Gemini는 "다음에 뭘 할까"(기술 호출 순서)만 정한다. Voyager·Mindcraft와 같은 방식.
-- **판단은 VM에 둔다.** Gemini 인증·페르소나·기억·사용량 상한이 VM 한 곳에 모여 있다.
-  PC 워커가 Gemini를 직접 부르지 않는다. 계획 호출은 가끔만 하므로 홍콩 왕복 지연은 문제없다.
-- **워커는 `avatar/devworker.js` 패턴을 따른다.** 아바타 창과 독립된 Node 프로세스로
-  브릿지에 따로 붙어서, 아바타를 꺼도 계속 논다. 재연결 백오프, outbox, 로그 로테이션도 같은 방식.
-  mineflayer 의존성이 무거우니 `tools/jobspy/`처럼 **최상위에 `minecraft/` 폴더를 따로** 만들고
-  package.json을 분리하는 것을 추천한다(최종 판단은 코드를 보고).
-- 브릿지 메시지는 `orchestrator/src/avatar/bridge.ts`의 기존 타입(`dev_task`/`dev_result`,
-  `job_results` 등) 방식대로 `mc_*` 타입을 추가한다.
-- 게임을 조작하는 부분과 판단하는 부분의 경계를 깔끔하게 둔다. 나중에 모드팩(실제 클라이언트 +
-  클라이언트 모드)으로 넓힐 때 조작 쪽만 갈아 끼울 수 있게.
+- **Two layers.** The language model is not called every tick. Survival reactions run in the bot's own code, and
+  Gemini is only asked what to do *next* (a short list of skill calls). This is the approach of Voyager and Mindcraft.
+- **Judgement stays on the server.** Gemini credentials, persona, memory and usage caps live in one place. The PC
+  bot never calls Gemini directly. Planning calls are occasional, so the round trip does not matter.
+- **The bot follows the dev worker's pattern.** A Node process independent of the avatar window that connects to the
+  bridge itself, so she keeps playing with the avatar closed: reconnect backoff, an outbox, log rotation.
+- **Control and judgement are separated cleanly,** so that a later move to a modded client only swaps the control
+  side.
 
-## 반드시 지킬 것
+## Rules
 
-- **게임 안 채팅은 전부 손님 취급한다.** 주인님은 서버에 들어오지 않으므로 게임 안에 "주인"은 없다.
-  게임 채팅 경로로는 개인 데이터 도구·구글 검색 그라운딩을 절대 주지 않는다
-  (`gemini.ts`의 `ownerTools`/`guestTools` 원칙). 마크 행동 도구만 별도로 준다.
-- **LLM 호출에 시간당 상한을 둔다.** 방치해도 돈이 새지 않아야 한다. 기존 사용량 테이블에 함께 기록한다.
-- **fail-closed를 유지한다.** 브릿지 토큰이 없으면 워커는 붙지 않는다.
-- 비밀값·월드 데이터·서버 jar·로그는 커밋하지 않는다(gitignore).
+- **Everything said in the game is a guest.** Nobody in the game is the owner. The in-game chat path gets Minecraft
+  action tools only — never personal-data tools or search grounding.
+- **Planner calls are capped per hour,** so leaving her running cannot leak money. They are recorded in the usage
+  table like everything else.
+- **Fail-closed.** Without a bridge token the bot does not connect.
+- Worlds, server jars, JDKs and logs are never committed.
 
-## 진행 순서
+## Order of work
 
-1. **서버 + 접속.** Java 25 준비, Paper(26.1 계열) 서버, 오프라인 모드, 127.0.0.1 바인딩.
-   mineflayer 봇이 접속해서 게임 채팅에 반응하는 데까지. 설치 전에 확인할 것:
-   - 26.1.2가 mineflayer/minecraft-data의 26.1과 프로토콜이 같은가
-   - Paper에 해당 버전 빌드가 있는가
-   - mineflayer-pathfinder·collectblock·pvp·auto-eat·prismarine-viewer가 26.1을 지원하는가
-     (안 되는 플러그인은 대체하거나 직접 구현)
-2. **반사신경 + 기술 라이브러리.** auto-eat, 반격·도망, 밤에 자기. 기술은 나무·돌 캐기,
-   기본 도구 제작, 이동부터 시작.
-3. **Gemini 계획자.** VM에서 목표를 잡고 기술 순서를 워커에 보낸다. 실패하면 이유와 함께 다시 계획.
-4. **기억·감정·디스코드.** 사건(다이아 발견, 죽음 등)은 장기기억에 남기고 감정은 아바타로 보낸다.
-   디스코드에서 "마크에서 뭐 했어?"에 대답한다. 큰일이 생기면 먼저 말을 걸게 할지도 정한다.
-
-각 단계를 끝낼 때마다 `WORKLOG.md`를 갱신하고 커밋·푸시한다.
+1. **Server and connection.** Java 25, a Paper 26.1 server in offline mode bound to localhost, a mineflayer bot that
+   joins and reacts to chat. *(done)*
+2. **Reflexes and a skill library.** Auto-eat, fighting back and fleeing, going to bed; skills for mining wood and
+   stone, crafting basic tools, and moving. *(done)*
+3. **The Gemini planner.** The server picks a goal and sends the bot an order of skills; if one fails, it re-plans
+   with the reason. *(code in place; surviving a whole night is still open)*
+4. **Memory, emotion, Discord.** Events (finding diamonds, dying) go to long-term memory and emotion goes to the
+   avatar; she can answer "what did you do in Minecraft?" in Discord. *(not started)*

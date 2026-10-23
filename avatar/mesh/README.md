@@ -1,58 +1,65 @@
-# mesh/ — 머리와 몸을 그리는 메시 엔진
+# mesh/ — the engine that draws the head and body
 
-[mesh-avatar-studio](https://github.com/shinshin86/mesh-avatar-studio) (MIT, `LICENSE-mesh-avatar-studio`) 의 엔진을
-번들해 넣은 것이다. 일러스트 한 장을 WebGL 메시로 변형해서 **고개 좌우 회전**, 눈 감기·눈웃음, 입 벌림을 한다.
+This is the engine of [mesh-avatar-studio](https://github.com/shinshin86/mesh-avatar-studio) (MIT,
+`LICENSE-mesh-avatar-studio`), bundled in. It deforms one illustration as a WebGL mesh to do **left–right head
+turns**, closing the eyes, smiling eyes and opening the mouth.
 
-## 어떻게 합쳐져 있나
+## How it is combined with the rest
 
-`renderer/meshface.js` 가 엔진을 감싸고, `renderer/app.js` 가 한 캔버스에 이렇게 쌓는다.
+`renderer/meshface.js` wraps the engine, and `renderer/app.js` stacks everything on one canvas:
 
-1. 꼬리 (기존 레이어 + 체인 벤딩)
-2. 귀 (기존 레이어, 감정 각도 + 털기)
-3. **메시 캔버스** — 머리·머리카락·얼굴·몸통. 꼬리와 귀를 뺀 그림(`built/base.png`)이다.
+1. the tail (the existing layers, with chain bending);
+2. the ears (the existing layers: emotion angle plus a flick);
+3. the **mesh canvas** — head, hair, face and body: the picture without the tail and ears (`built/base.png`).
 
-귀를 꼬리 다음, 메시 아래에 그리는 순서는 원래 레이어 순서와 1,633픽셀만 다르다 (귀 털 끝).
-귀는 메시 머리의 롤을 따라 같이 기울고, 메시 머리의 피벗을 쓴다.
+Drawing the ears after the tail and below the mesh differs from the original layer order by only 1,633 pixels (the
+tips of the ear fur). The ears tilt along with the mesh head's roll and use the mesh head's pivot.
 
-감정은 `meshface.js` 의 `EXPRESSION` 표로 엔진 표정에 매핑된다. 엔진이 스스로 시선·깜빡임·머리 흔들림을 돌리고
-(자동 모드), 음성이 나오는 동안은 `setVoice` 로 음량을 넘겨 입을 움직인다.
+Emotions are mapped onto the engine's expressions by the `EXPRESSION` table in `meshface.js`. The engine runs gaze,
+blinking and a small head sway by itself (auto mode), and while her voice plays, `setVoice` passes the volume in so
+the mouth moves.
 
-**끄는 법:** `avatar/config.json` 에 `"mesh": false`. 엔진이나 에셋이 없거나 초기화에 실패해도 자동으로 기존
-레이어 방식으로 돌아간다 (`[avatar] head and body: layered`).
+**To turn it off:** `"mesh": false` in `avatar/config.json`. If the engine or its assets are missing, or startup
+fails, it falls back to the plain layer renderer automatically (`[avatar] head and body: layered`).
 
-## 파일
+## Files
 
 | | |
 |---|---|
-| `engine.js` | 엔진 번들 (esbuild, 읽을 수 있는 상태). 아래 수정이 들어 있다 |
-| `rig.json` | 눈 윤곽·얼굴 영역·머리카락 가닥 등 리그 |
-| `built/` | 메시 레이어 PNG, `hairmask.png`, 눈웃음 스프라이트 |
-| `build/make_draft.py`, `build/make_smile.py`, `build/build_mesh_source.py` | 리그 초안, 눈웃음 변형, 메시용 원본(꼬리·귀·입 제외)을 만든 스크립트 (경로는 만든 PC 기준) |
+| `engine.js` | The engine bundle (esbuild, left readable). It contains the changes below. |
+| `rig.json` | The rig: eye outlines, face regions, hair strands. |
+| `built/` | Mesh layer PNGs, `hairmask.png`, the smiling-eye sprites. |
+| `build/make_draft.py`, `build/make_smile.py`, `build/build_mesh_source.py` | Scripts that made the rig draft, the smiling-eye variants and the mesh source image (tail, ears and mouth removed). Paths are those of the machine they were made on. |
 
-## 엔진에 넣은 수정 (원본 대비)
+## Changes made to the engine (against the original)
 
-시로에 맞게 시험 폴더에서 고친 것이다. 원본 엔진을 다시 받으면 이 목록을 다시 적용해야 한다.
+These were made to suit Shiro in a scratch folder. **If you fetch the original engine again, reapply this list.**
 
-- `rig.js` — 고개 돌릴 때 두 눈 사이가 좁아지게 (`TURN_GAP=0.1`, 각도의 제곱에 비례), 눈 폭 변화 `TURN_STRETCH=0.15`.
-  눈이 감기면 눈꺼풀 주름 레이어가 완전히 사라지게 (조각난 선이 눈썹처럼 보이던 것).
-- `sprites.js` — 그림 세트가 불완전하면 변형 처리를 끄지 않도록 (`complete`). 눈웃음만 있어도 감기·입 벌림이 동작한다.
-- `createMeshAvatar.js` — 위 `complete` 일 때만 눈꺼풀·입 변형을 끄고, 고개를 돌리면 두 홍채가 같은 방향으로
-  약간 움직이게 (`TURN_IRIS=4`px, 사시처럼 보이던 것).
-- `renderer.js` — 화면에 안 붙인 캔버스를 위한 고정 크기 (`dataset.fixedSize`).
-- `rig.js` — 코는 얼굴과 한 덩어리로 움직인다 (원래는 고개를 돌릴 때 좌우 8px, 위아래 6px 더 밀려서 코가 얼굴 위에 떠다녔다).
-- `sprites.js`, `createMeshAvatar.js` — **입은 한 장의 그림을 세로로만 늘이고 줄인다** (`sprites.json` 의 `singleMouth`).
-  엔진 자체의 입은 다른 화풍이라 말을 시작하는 순간 다른 입으로 바뀌어 보였다. 입은 메시용 원본에서 빼고
-  `built/sprites/mouth_a.png` 로 따로 그린다. 말하는 동안은 음량으로 0.25~1.2배, 아닐 때는 1배(표정에 따라 조금 더).
+- `rig.js` — the gap between the eyes narrows as the head turns (`TURN_GAP=0.1`, proportional to the square of the
+  angle) and the eye width changes by `TURN_STRETCH=0.15`. When the eyes close, the eyelid-crease layer disappears
+  completely (the broken line used to look like an eyebrow).
+- `sprites.js` — an incomplete picture set no longer switches the deformations off (`complete`). Smiling eyes alone are
+  enough for blinking and mouth opening to work.
+- `createMeshAvatar.js` — eyelid and mouth deformation are switched off only when the above `complete` is set, and
+  when the head turns both irises shift slightly the same way (`TURN_IRIS=4` px; it used to look cross-eyed).
+- `renderer.js` — a fixed size for a canvas that is not attached to the screen (`dataset.fixedSize`).
+- `rig.js` — the nose moves as one piece with the face. (It used to be pushed a further 8 px sideways and 6 px
+  vertically when the head turned, so it floated above the face.)
+- `sprites.js`, `createMeshAvatar.js` — **the mouth is one drawing, only stretched and squashed vertically**
+  (`singleMouth` in `sprites.json`). The engine's own mouth is in a different art style, so the moment she started
+  to speak it looked like another mouth. The mouth is removed from the mesh source and drawn separately as
+  `built/sprites/mouth_a.png`: 0.25–1.2× by volume while speaking, 1× otherwise (slightly more with some
+  expressions).
 
-## 그림 쪽 손질
+## Changes to the art
 
-- 코 하이라이트(`nose.png`)는 투명도 55% 로 합쳤다. See-through 가 분해한 것은 원본의 분홍빛 번짐이 빠진
-  밋밋한 흰 덩어리라 얼굴 위에 하얗게 떠 보였다. 값은 `build/build_mesh_source.py` 의 `0.55`.
-  (기존 레이어 방식의 `layers/nose.png` 는 그대로다.)
+- The nose highlight (`nose.png`) is merged at 55% opacity. What See-through decomposed was a flat white blob without
+  the original's pink glow, so it floated white on the face. The value is `0.55` in `build/build_mesh_source.py`.
+  (`layers/nose.png` of the plain layer renderer is unchanged.)
 
-## 알려진 한계
+## Known limits
 
-- 입은 모음별 그림이 없다. 한 장을 세로로 스케일할 뿐이다.
-- 눈웃음 그림은 코드로 그렸다. 눈 바깥쪽 끝에 옅은 사각 패치 자국이 약간 남는다.
-- 알파 24 미만의 옅은 픽셀은 지웠다 (엔진이 선명하게 그려서 분홍 점으로 보였다).
-- 한 장짜리 그림의 변형이라 크게 돌리면 입체감이 한계가 있다.
+- There are no per-vowel mouth drawings; one picture is scaled vertically.
+- The smiling-eye art was drawn in code. A faint rectangular patch mark remains at the outer end of the eyes.
+- Faint pixels below alpha 24 were removed (the engine draws sharply, and they showed up as pink dots).
+- It is a deformation of a single picture, so large turns have limited depth.

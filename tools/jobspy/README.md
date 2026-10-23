@@ -1,12 +1,13 @@
-# JobSpy 크롤러 (시로 채용 공고 기능)
+# JobSpy crawler (the job-postings feature)
 
-주인님 PC에서 [JobSpy](https://github.com/speedyapply/JobSpy)로 홍콩 공고를 소량 조회해서
-`output/`에 JSON으로 남기면, 켜져 있는 아바타가 그 파일을 읽어 서버로 전달합니다.
-**로그인도, API 키도 필요 없습니다.** LinkedIn은 로그인 없이 보는 공개 검색만 씁니다.
+A small crawler that runs on **your own PC**. It uses [JobSpy](https://github.com/speedyapply/JobSpy) to query a
+modest number of job postings (configured for Hong Kong) and writes them as JSON into `output/`. The running avatar
+reads those files and passes them to the server. **No login and no API key is needed**: LinkedIn is searched through
+its public, logged-out pages only.
 
-이 서버(Lightsail VM)에서는 절대 돌리지 마세요 — 데이터센터 IP는 훨씬 쉽게 차단됩니다.
+**Never run it on your server (a cloud VM).** Datacenter IP addresses get blocked far more easily.
 
-## 설치 (한 번만)
+## Install (once)
 
 ```powershell
 cd tools\jobspy
@@ -14,53 +15,60 @@ py -3.12 -m venv venv
 venv\Scripts\pip install -r requirements.txt
 ```
 
-## 시험 실행
+(On macOS/Linux: `python3 -m venv venv && venv/bin/pip install -r requirements.txt`.)
+
+## Try it
 
 ```powershell
 venv\Scripts\python crawl.py
 ```
 
-`output/` 폴더에 `20260922T120000Z.json` 같은 파일이 생기면 성공입니다. `crawl.log`에 사이트별 결과 수가 남습니다.
-아바타가 켜져 있으면 최대 1분 안에 파일을 읽어 서버로 보내고 지웁니다(전송 실패 시 다음에 다시 시도, 파일은 남아 있음).
+A file such as `20260922T120000Z.json` in `output/` means it worked. `crawl.log` records how many results each site
+returned. With the avatar running, it reads the file within a minute, sends it to the server and deletes it (if
+sending fails it tries again next time and the file stays).
 
-## 자동 실행 (Windows 작업 스케줄러)
+## Running it on a schedule (Windows Task Scheduler)
 
-**한 줄로 하는 방법** — 매일 09:00·21:00 에 돌고, 콘솔 창이 안 뜨고, PC 가 꺼져 있었으면 켜질 때 한 번 돈다:
+**The one-line way** — runs daily at 09:00 and 21:00 with no console window, and once at the next boot if the PC was
+off:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\autostart\install.ps1
 ```
 
-(같은 스크립트가 아바타·개발 워커·서버 터널의 로그온 자동 시작도 등록한다. 공고는 아바타가 켜져 있어야 시로에게 간다.
-자세한 건 최상위 `README.md` 의 "PC 에서 시로 켜두기".) 아래는 손으로 하는 방법이다.
+(The same script also registers logon autostart for the avatar, the dev worker and the server tunnel. Postings only
+reach Shiro while the avatar is running. See [Getting started](../../docs/getting-started.md#5-keeping-the-pc-side-running-windows).)
 
-1. **작업 스케줄러** 실행 → **기본 작업 만들기**
-2. 트리거: 매일, 원하는 시각 1~2개 (예: 오전 9시)
-3. 동작: 프로그램 시작
-   - 프로그램: `C:\Users\User\Desktop\virtual-assistant\tools\jobspy\venv\Scripts\python.exe`
-   - 인수: `crawl.py`
-   - 시작 위치: `C:\Users\User\Desktop\virtual-assistant\tools\jobspy`
-4. "가장 높은 권한으로 실행" 체크 불필요. PC가 꺼져 있으면 그날은 건너뜁니다 — 정상입니다.
+By hand:
 
-## 설정 (`config.json`)
+1. Open **Task Scheduler** → **Create Basic Task**.
+2. Trigger: daily, once or twice a day (for example 9 a.m.).
+3. Action: start a program.
+   - Program: `<repo>\tools\jobspy\venv\Scripts\python.exe`
+   - Arguments: `crawl.py`
+   - Start in: `<repo>\tools\jobspy`
+4. "Run with highest privileges" is not needed. If the PC is off that day it is skipped, which is fine.
 
-| 필드 | 뜻 |
+## Settings (`config.json`)
+
+| Field | Meaning |
 |---|---|
-| `queries` | 검색어 목록. 하나씩 순서대로 조회 |
-| `location`, `countryIndeed` | 검색 지역. 기본 홍콩 |
-| `sites` | `linkedin`, `indeed` (Google, Glassdoor는 잘 깨져서 뺐음) |
-| `resultsPerQuery` | 검색어 하나당 최대 결과 수 |
-| `hoursOld` | 이 시간 이내에 올라온 공고만 (기본 720시간 = 30일) |
-| `requestGapSeconds`, `queryGapSeconds` | 요청 사이 쉬는 시간. 줄이면 차단 위험이 커짐 |
-| `fetchLinkedinDescriptions` | LinkedIn 공고 본문까지 가져올지. **켜면 공고마다 추가 요청**이라 기본 꺼짐 |
+| `queries` | List of search terms, queried one after another. |
+| `location`, `countryIndeed` | Where to search. Hong Kong by default. |
+| `sites` | `linkedin`, `indeed` (Google and Glassdoor break often, so they are left out). |
+| `resultsPerQuery` | Maximum results for each search term. |
+| `hoursOld` | Only postings newer than this (default 720 hours = 30 days). |
+| `requestGapSeconds`, `queryGapSeconds` | Pauses between requests. Shortening them raises the risk of being blocked. |
+| `fetchLinkedinDescriptions` | Fetch each LinkedIn posting's full text. **Every posting then costs an extra request**, so it is off by default. |
 
-## 시로에게 물어보기
+## Asking Shiro
 
-Discord에서 "새 공고 있어?"라고 물으면 아직 안 보여준 공고를 알려줍니다. 한 번 보여준 공고는 다시 안 나옵니다.
-시로는 스스로 먼저 알려주지 않습니다 — 물어봐야만 확인합니다.
+In Discord, ask "any new postings?" and she tells you about the ones she has not shown yet, ten at a time; ask for
+more and she gives the next ten. A posting she has shown you does not come up again. She never brings them up on her
+own — she only checks when you ask.
 
-## 안전 수칙 (지키세요)
+## Rules to keep
 
-- **LinkedIn 비밀번호나 쿠키를 이 폴더의 어떤 파일에도 넣지 않습니다.** 로그인 없이 돌아가는 구조입니다.
-- **하루 1~2회면 충분합니다.** 자주 돌릴수록 IP가 차단될 위험이 커집니다.
-- `venv/`, `output/`, `crawl.log`는 git에 올라가지 않습니다(`.gitignore`).
+- **Do not put a LinkedIn password or cookie in any file in this folder.** It works logged out, by design.
+- **Once or twice a day is plenty.** The more often it runs, the more likely your IP is blocked.
+- `venv/`, `output/` and `crawl.log` are not committed (`.gitignore`).

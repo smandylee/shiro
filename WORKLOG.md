@@ -1,7 +1,7 @@
 # 작업 로그
 
 컴퓨터를 옮겨가며 작업하니까, **다른 데서 이어서 시작할 때 여기부터 읽는다.**
-`README.md`는 "어떻게 돌리나"(설치·배포·파이프라인·함정)를 다루고,
+`README.md`와 `docs/`(영어)는 "어떻게 돌리나"(설치·배포·파이프라인·함정)를 다루고,
 이 파일은 "어디까지 했고 다음에 뭘 하나"만 다룬다. 내용이 겹치면 README가 정답이다.
 
 작업을 마치면 **[상태]와 [다음]을 고치고, [기록] 맨 위에 한 줄 남긴 다음 커밋·푸시한다.**
@@ -56,7 +56,7 @@
 "테스트" 상태여서 리프레시 토큰이 7일마다 만료되던 것 — **"프로덕션"으로 게시**했고, 새 토큰에는 7일 만료
 표시(`refresh_token_expires_in`)가 없다. **정말 안 끊기는지는 10/8 이후에도 살아 있어야 확정**이다.
 토큰이 죽으면 이제 디스코드 DM 으로 알려주고, PC 에서 `node tools/google-reauth.js` 한 줄로 다시 로그인하면
-재시작 없이 반영된다. 자세한 건 `README.md` 의 "구글 연동".
+재시작 없이 반영된다. 자세한 건 `docs/google-integration.md`.
 
 즉, **몸·목소리·손(개발·배포)까지 왔고, 얼굴 표정이 여전히 통째로 남았다.**
 
@@ -135,6 +135,15 @@ AIRI(`moeru-ai/airi`, MIT, 베타) 의 `integrations/discord-bot` 을 읽었다 
 - **B. 마크 상한 버그 수정** *(작음, 추천)*: 막히면 몇 분 쉬게.
 - **C. 시로의 생활 전하기** *(중간)*: 마크 사건을 기억에 남기고 먼저 말하게. 밤 생존이 풀려야 의미 있고, 봇 자동 시작이 필요하다.
 - **D. 바깥 소식** *(중간)*: 프로필 관심사로 하루 한 번 검색해서 가져온다. 음소거도 같이.
+
+### ★ 저장소를 외국 사람이 찾게 (2026-10-23, 문서는 끝, 노출 작업이 남음)
+
+문서·라이선스·이미지는 올렸다. **아직 안 한 것**(GitHub 설정은 바깥에 보이는 변경이라 주인님이 OK 하면 한다):
+- **GitHub 소개와 토픽.** 소개(description)가 한국어고 토픽이 없어서 검색에 안 잡힌다. 제안: 소개 "A self-hosted AI companion: a Discord assistant with memory and mood, a desktop avatar that acts out her emotions, and a Minecraft bot." /
+  토픽 `discord-bot`, `ai-companion`, `virtual-assistant`, `vtuber`, `live2d`, `electron`, `gemini`, `typescript`, `minecraft-bot`, `mineflayer`, `ai-agent`. 소셜 미리보기 이미지(`docs/images/shiro.png` 를 1280×640 으로 가공)도 같이.
+- **실제로 움직이는 데모.** 지금 그림은 정지 그림과 꼬리 GIF 뿐이다. 돌아가는 아바타(표정 전환·고개 돌림·말할 때 입)를 화면 녹화한 GIF/영상이 있으면 첫인상이 크게 달라진다. 이 맥에선 Electron 이 안 돌아 못 만들었다 (아바타가 도는 PC 에서).
+- **코드 안의 한국어 개인 예시.** `persona.ts` 의 예시에 주인님 수업 과목 코드가 들어 있다(공개 코드). 영어화(시로 다국어)를 하게 되면 같이 일반화한다. 시로가 영어로 말하게 하는 건 별개의 큰 작업이다 (README "Language" 참고).
+- 영어 README 의 "Status"·"Safe by default" 문구는 코드와 대조했지만 한 번 더 읽고 과장이 없는지 주인님이 봐 주면 좋다.
 
 ### ★ 공개 저장소에 남은 서버 주소 — 결정이 필요하다
 
@@ -237,7 +246,7 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 ### 자잘한 것
 
 - `orchestrator/src/llm/gemini.ts` 의 `runTool()` 이 `sessionKey` 를 받기만 하고 안 쓴다.
-- 브릿지 바인딩 방식이 README(`AVATAR_BRIDGE_HOST` 에 tailscale IP)와
+- 브릿지 바인딩 방식이 옛 README(`AVATAR_BRIDGE_HOST` 에 tailscale IP — 지금은 `docs/getting-started.md` 에 "사설망 또는 SSH 터널"로 정리)와
   `bridge.ts` 주석(`tailscale serve` 권장)이 서로 다르게 말한다. 하나로 통일.
 - 손님과의 대화도 감정이 주인님 아바타에 그대로 반영된다
   (`index.ts` 가 `isOwner` 와 무관하게 `avatarSay` 호출). 말풍선은 기본 off라 내용은 안 보인다.
@@ -250,6 +259,20 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 ## 기록
 
 최신이 위.
+
+### 2026-10-23 — 문서를 영어로, 외국 사람이 찾아볼 수 있게
+
+주인님이 "README 같은 걸 영어로 바꿔서 외국 사람들이 많이 찾아보게" 하고 싶다고 했다. 번역만으로는 부족해서 **처음 읽는 사람 순서로 다시 썼다.**
+옛 README 는 "내 서버에서 내가 쓰는 방법" 메모라서 열면 내부 주소·키 이름·주인님 전용 설정이 먼저 보이고 무슨 프로젝트인지 설명이 없었다.
+
+- **정한 것** (주인님이 고름): 코드 **MIT**, 그림은 코드와 분리해 **CC BY-NC 4.0**(비영리·출처 표시), 한국어 문서는 **영어로 완전히 교체**(한국어 README 는 남기지 않음, 이력엔 있다), `WORKLOG.md`·`CLAUDE.md` 는 **한국어 그대로**.
+- **새로 만든 것:** `LICENSE`, `LICENSE-ASSETS.md`(그림 경로 표 + NovelAI·See-through 출처), 영어 `README.md`(소개·데모·기능·구조·안전·빠른 시작·언어 안내), `orchestrator/.env.example`,
+  `docs/getting-started.md`(설정 전부·서버 실행·Windows 자동 시작·문제 해결), `docs/google-integration.md`, `docs/guild-chat.md`, `docs/dev-tasks.md`, `docs/avatar.md`, `docs/images/`(정지 그림 + 꼬리 GIF — `avatar/tools/composite.mjs`·`preview-tail.mjs` 로 만든 것).
+- **영어로 옮긴 것:** `docs/minecraft.md`(설계를 일반화), `minecraft/README.md`, `tools/jobspy/README.md`, `avatar/mesh/README.md`.
+- **일반화:** Tailscale IP·키 이름·채널 ID·주인님 전용 사정을 뺐다. 로그인 없이 읽는 곳이라 "주인님"은 "the owner" 로.
+- **솔직하게 적은 것:** 시로는 **한국어로 말한다**(프롬프트·도구 설명이 한국어, 번역할 파일 목록을 README 에 적었다). 개인 프로젝트라 한 줄 설치가 아니다. Windows 에서 개발했고 mac·Linux 는 시험 못 했다.
+- 확인: 영어 문서에 남은 한글은 실제 명령어(`!시로 켜기`, 마크 채팅 명령)뿐이고 그렇다고 밝혔다. 상대 링크·그림 경로 깨진 것 없음. `tsx --env-file` 로 `.env` 읽는 것을 이 맥에서 확인.
+- **못 한 것·남은 것:** 아래 [다음] "★ 저장소를 외국 사람이 찾게".
 
 ### 2026-10-19 — 서버 배포: 스스로 궁금해하기 + 음성 생각 끄기 (`bd219a7`)
 

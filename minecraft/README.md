@@ -1,120 +1,125 @@
-# 시로 마인크래프트
+# Shiro plays Minecraft
 
-시로가 혼자 플레이하는 마인크래프트. 주인님은 서버에 들어가지 않는다.
-여기에는 **이 폴더를 어떻게 돌리나**만 적는다. 어디까지 했고 다음에 뭘 하는지는 `WORKLOG.md`.
+A bot that plays Minecraft by itself. The owner does not join the server. This file covers **how to run this
+folder**; the design is in [`docs/minecraft.md`](../docs/minecraft.md).
 
-## 시켜보기
+## Trying it by hand
 
-아직 **스스로 목표를 정하지는 않는다.** 계획자(3단계)가 붙기 전까지는 게임 채팅으로
-기술을 하나씩 시켜서 시험한다:
+It does **not set its own goals yet.** Until the planner is wired in, you try the skills one at a time through
+in-game chat:
 
 ```
-상태             지금 상황 한 줄
-가방             들고 있는 것
-와               말한 사람에게 간다
-캐 wood 3        나무 3개 (wood / stone / coal / iron / dirt / sand 같은 묶음 이름도 된다)
-만들어 planks 8  가진 재료에 맞는 판자를 골라서 만든다
-들어 stone       그 블록에 맞는 제일 좋은 도구를 든다
+상태             one line on the current situation          (status)
+가방             what she is carrying                        (inventory)
+와               come to whoever said it                     (come)
+캐 wood 3        mine 3 wood (group names also work: wood / stone / coal / iron / dirt / sand)
+만들어 planks 8  craft planks, choosing the kind that matches the materials she has
+들어 stone       hold the best tool for that block
 ```
 
-**게임 안 사람은 전부 손님이다.** 이 명령들은 마크 행동뿐이고 주인님 개인 도구는 여기로 오지 않는다.
-계획자가 붙으면 이 채팅 명령은 없어진다.
+(The chat commands are Korean, like the rest of her personality.)
 
-## 구성
+**Everyone in the game is a guest.** These commands only do Minecraft actions; no personal tools reach this path.
+Once the planner is attached, these chat commands go away.
+
+## Layout
 
 ```
 minecraft/
-  bot.js        mineflayer 봇 (진입점) · 채팅으로 기술을 시켜볼 수 있다
-  reflexes.js   살아남는 반응 — 먹기, 도망, 반격, 밤에 자기. LLM 안 씀
-  skills.js     할 줄 아는 것 — 이동, 캐기, 제작, 도구 장착
-  jdk/          Java 25 (커밋 안 함)
-  server/       Paper 서버 + 월드 (커밋 안 함)
+  bot.js        the mineflayer bot (entry point); try skills through chat
+  reflexes.js   reactions that keep her alive: eat, flee, fight back, sleep. No LLM
+  skills.js     what she knows how to do: move, mine, craft, equip tools
+  agent.js      the planner client: sends the situation to the server, runs the skills it returns
+  jdk/          Java 25 (not committed)
+  server/       the Paper server and its world (not committed)
 ```
 
-**두 층으로 나눠져 있다.** 반사신경은 1초마다 코드로 돌고, 기술은 한 번에 하나씩 불린다.
-반사신경이 이기고, 기술은 `state.reflex` 를 보고 비켜난다 — 안 그러면 둘이 같은 다리를 두고
-싸워서 도망치던 방향으로 나무를 캐러 간다.
+**Two layers.** Reflexes run in code once a second; skills are called one at a time. Reflexes win, and skills read
+`state.reflex` and step aside — otherwise the two fight over the same legs and she mines a tree in the direction
+she was fleeing.
 
-## 26.1 에서 걸린 것들
+## What broke on 26.1
 
-플러그인이 "설치된다"와 "동작한다"는 다르다. 실제로 서버에 붙여보고 알아낸 것:
+A plugin that installs is not a plugin that works. What was found by connecting to a real server:
 
-| 문제 | 어떻게 했나 |
+| Problem | What was done |
 |---|---|
-| `mineflayer-collectblock` 이 2칸 거리 블록에서도 시간 초과하고, 성공을 반환해도 아이템이 안 들어온다 | **안 쓴다.** `skills.js` 의 `digOne()` 이 이동→도구→`bot.dig`→드롭 줍기를 직접 한다. 그 셋은 각각 멀쩡하다 |
-| 인벤토리 2×2 에서 **일부만 채우는** 레시피가 깨진다. 막대기(판자 2개 세로)를 시키면 판자를 하나만 놓아서 서버가 **버튼**을 만든다 | `fitsInventoryGrid()` 로 걸러서, 2×2 를 꽉 채우거나 모양이 없는 레시피만 거기서 만들고 나머지는 작업대를 쓴다 |
-| `mineflayer-pvp` 가 옛 이벤트명(`physicTick`)을 써서 경고가 뜬다 | 동작에는 지장 없다. 무시한다 |
-| `mineflayer-pvp` 가 `mineflayer-utils` 를 통해 **mineflayer 2.41.0 사본**을 물고 온다 | 지금은 문제 없지만, pvp 가 이상하게 굴면 여기부터 의심한다 |
+| `mineflayer-collectblock` times out even on a block two squares away, and returns success without the item reaching the inventory | **Not used.** `digOne()` in `skills.js` does move → tool → `bot.dig` → pick up the drop itself. Each of those three works fine. |
+| In the 2×2 inventory grid, recipes that **only partly fill it** break. Asking for sticks (two planks, one above the other) places a single plank, and the server turns it into a **button** | `fitsInventoryGrid()` filters: only recipes that fill the 2×2 completely, or have no shape, are made there; everything else uses a crafting table. |
+| `mineflayer-pvp` listens for an old event name (`physicTick`) and prints a warning | Harmless. Ignore it. |
+| `mineflayer-pvp` pulls in a **copy of mineflayer 2.41.0** through `mineflayer-utils` | No problem now, but if pvp acts strangely, suspect this first. |
 
-`pathfinder`, `auto-eat` 은 26.1 에서 그대로 잘 된다.
+`pathfinder` and `auto-eat` work on 26.1 as they are.
 
-## 봇이 하나만 돌아야 한다
+## Only one bot may run
 
-같은 이름으로 둘이 접속하면 서버가 먼저 있던 쪽을 내보내고, 그쪽이 재접속하면서 상대를 내보낸다.
-둘이 번갈아 쫓아내느라 아무것도 못 끝낸다. `bot.js` 가 `.bot.lock` 에 PID 를 적어두고
-두 번째 실행을 거부한다. 죽은 프로세스의 락은 무시한다.
+Two connections under the same name make the server kick the older one, which reconnects and kicks the other. They
+take turns evicting each other and nothing finishes. `bot.js` writes its PID to `.bot.lock` and refuses a second run.
+A lock left by a dead process is ignored.
 
-## 난이도를 바꾸려면
+## Changing the difficulty
 
-`server.properties` 의 `difficulty` 는 **월드를 처음 만들 때만** 쓰인다. 이미 만들어진 월드는
-`level.dat` 의 값을 따르므로, 파일만 고치고 재시작해도 안 바뀐다. 게임 안에서 `/difficulty` 로 바꾼다.
+`difficulty` in `server.properties` only applies **when the world is first created.** An existing world follows the
+value in `level.dat`, so editing the file and restarting changes nothing. Use `/difficulty` in game.
 
-## 버전을 이렇게 고른 이유
+## Why these versions
 
-| 항목 | 값 | 이유 |
+| Item | Value | Reason |
 |---|---|---|
-| 마크 | **26.1.2** | mineflayer 가 지원하는 마지막 계열이 26.1 이다. 26.2/26.3 은 아직 안 된다 |
-| 프로토콜 | **775** | 26.1 / 26.1.1 / 26.1.2 가 전부 775 라, 서버는 26.1.2 를 쓰고 봇은 `version: "26.1"` 로 고정한다 |
-| Paper | **26.1.2 빌드 74** | |
-| Java | **25** | 26.x 서버의 최소 요구 버전 |
+| Minecraft | **26.1.2** | The last line mineflayer supports is 26.1; 26.2 and 26.3 do not work yet. |
+| Protocol | **775** | 26.1, 26.1.1 and 26.1.2 are all 775, so the server runs 26.1.2 and the bot pins `version: "26.1"`. |
+| Paper | **26.1.2, build 74** | |
+| Java | **25** | The minimum for 26.x servers. |
 
-봇의 버전은 **자동 감지에 맡기지 않는다**. 서버가 올라가는 날 조용히 어긋나기 때문이다.
+The bot's version is **not left to auto-detection**; it would drift silently the day the server is upgraded.
 
-## Java 를 이 폴더 안에 둔 이유
+## Why Java lives in this folder
 
-이 PC 에는 Java 17 이 이미 깔려 있고 `JAVA_HOME` 도 거기를 가리킨다. 그걸 25 로 바꾸면
-이 기계의 다른 Java 용도가 같이 흔들린다. 그래서 JDK 25 를 `minecraft/jdk/` 에만 풀어두고
-**마크 서버만** 그 java.exe 를 쓴다. 시스템 설정은 건드리지 않는다.
+The author's PC already had Java 17 with `JAVA_HOME` pointing at it. Changing that to 25 would disturb every other
+Java use on the machine, so JDK 25 is unpacked into `minecraft/jdk/` and **only the Minecraft server** uses that
+`java`. System settings are untouched. (If you have no other Java needs, a normal install is fine.)
 
-## 준비 (처음 한 번)
+## One-time setup
 
-1. Temurin JDK 25 (Windows x64 zip) 를 받아 `jdk/` 에 푼다.
-2. Paper jar 를 받아 `server/` 에 둔다 — <https://fill.papermc.io/v3/projects/paper/versions/26.1.2/builds/latest>
-   두 주소 다 SHA-256 을 함께 주므로, **받은 파일은 체크섬을 대조한 뒤** 쓴다.
-3. 서버를 한 번 돌려 설정 파일을 만들게 한다. EULA 미동의로 바로 꺼진다.
-4. `server/eula.txt` 의 `eula=true` — **Mojang EULA 동의**다. 주인님이 직접 정한다.
-5. `server/server.properties` 를 아래대로 맞춘다.
+1. Download a Temurin JDK 25 (for your OS) and unpack it into `jdk/`.
+2. Download the Paper jar into `server/` —
+   <https://fill.papermc.io/v3/projects/paper/versions/26.1.2/builds/latest>. The download gives a SHA-256;
+   **compare it before using the file.**
+3. Run the server once so it writes its config files. It stops straight away, because the EULA is not accepted.
+4. Set `eula=true` in `server/eula.txt`. That is your agreement to the **Mojang EULA**; it is your decision.
+5. Edit `server/server.properties` as below.
 6. `npm install`
 
-## 서버 설정에서 중요한 것
+## The server settings that matter
 
 ```properties
-server-ip=127.0.0.1          # 이 PC 밖에서는 접속 자체가 불가능
-online-mode=false            # 계정 없이 이름만으로 접속
-enforce-secure-profile=false # 오프라인 모드에서 채팅 서명이 봇을 막는 것을 방지
-spawn-protection=0           # 봇이 스폰 근처에서 블록을 놓을 수 있게
+server-ip=127.0.0.1          # nothing outside this PC can connect at all
+online-mode=false            # join with just a name, no account
+enforce-secure-profile=false # stops chat signing from blocking the bot in offline mode
+spawn-protection=0           # lets the bot place blocks near spawn
 ```
 
-`online-mode=false` 는 **아무 이름으로나 들어올 수 있다**는 뜻이다.
-그래서 `server-ip=127.0.0.1` 이 짝으로 반드시 필요하다. 포트를 공유기에서 열지 않는다.
+`online-mode=false` means **anyone can join under any name.** That is why `server-ip=127.0.0.1` is its mandatory
+partner. Never forward the port on your router.
 
-## 돌리기
+## Running
 
 ```bash
-# 서버
+# server
 cd minecraft/server
-"../jdk/jdk-25.0.4.1+1/bin/java.exe" -Xms1G -Xmx3G -XX:+UseG1GC -XX:G1HeapRegionSize=8M -jar paper-26.1.2-74.jar --nogui
+../jdk/<your-jdk>/bin/java -Xms1G -Xmx3G -XX:+UseG1GC -XX:G1HeapRegionSize=8M -jar paper-26.1.2-74.jar --nogui
 
-# 봇 (다른 창에서)
+# bot (in another terminal)
 cd minecraft
 npm run bot
 ```
 
-환경변수로 덮어쓸 수 있다: `MC_HOST`, `MC_PORT`, `MC_USERNAME`, `MC_VERSION`.
+(On Windows the binary is `java.exe`.) Override with environment variables:
+`MC_HOST`, `MC_PORT`, `MC_USERNAME`, `MC_VERSION`. The viewer port is `MC_VIEWER_PORT`.
 
-## 지킬 것
+## Rules to keep
 
-- **게임 안 채팅은 전부 손님이다.** 주인님은 서버에 들어오지 않으므로 게임 안에 "주인"은 없다.
-  게임 채팅에는 마크 행동 도구만 주고, 개인 데이터 도구와 검색 그라운딩은 절대 주지 않는다.
-- 월드·jar·JDK·로그는 커밋하지 않는다 (`.gitignore`).
-- 서버가 이 PC 에서 돌기 때문에, **PC 가 꺼져 있으면 시로도 마크를 못 한다.**
+- **Everything said in game is a guest.** The owner does not join the server, so there is no "owner" in the game.
+  Game chat gets Minecraft action tools only, never personal-data tools or search grounding.
+- Worlds, jars, JDKs and logs are not committed (`.gitignore`).
+- The server runs on this PC, so **when the PC is off, Shiro cannot play Minecraft.**
