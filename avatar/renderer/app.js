@@ -729,6 +729,12 @@ function connect() {
       onSpeakChunk(event);
     } else if (event.type === "speak_end") {
       onSpeakEnd(event);
+    } else if (event.type === "browser_request") {
+      // Her own browser lives in the main process, which decides whether it is allowed at all.
+      window.shiro
+        .browser(event.op)
+        .catch((err) => ({ ok: false, error: `브라우저 오류: ${err.message}` }))
+        .then((result) => ws.send(JSON.stringify({ type: "browser_result", id: event.id, result })));
     } else if (event.type === "capture_request") {
       // The main process decides whether screen capture is allowed at all.
       window.shiro

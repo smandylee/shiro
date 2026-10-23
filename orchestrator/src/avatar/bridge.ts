@@ -21,6 +21,10 @@ export type AvatarEvent =
   // Asks the avatar's PC for a picture of the owner's screen. The answer comes
   // back as a `capture_result` carrying the same id.
   | { type: "capture_request"; id: string }
+  // One action in her own browser (open a page, click, type...). The avatar runs it
+  // in the window it keeps for her and answers with a `browser_result` carrying the
+  // same id. What she may do is decided there, not here.
+  | { type: "browser_request"; id: string; op: Record<string, unknown> }
   // What she made of the owner's spoken words ("" when nothing could be made out),
   // so the avatar can stop showing "listening…".
   | { type: "heard"; text: string }
@@ -98,6 +102,16 @@ type PendingCapture = {
 };
 
 const pendingCaptures = new Map<string, PendingCapture>();
+
+type PendingBrowser = {
+  client: Client;
+  resolve: (r: unknown) => void;
+  reject: (e: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+};
+const pendingBrowser = new Map<string, PendingBrowser>();
+// A page can take a while to open and settle.
+const BROWSER_TIMEOUT_MS = 60_000;
 const CAPTURE_TIMEOUT_MS = 10_000;
 // A screenshot arrives as base64 in one frame; this keeps a misbehaving client
 // from feeding the model (and our memory) something enormous.
@@ -139,6 +153,35 @@ export function requestScreenCapture(): Promise<ScreenCapture> {
     pendingCaptures.set(id, { client, resolve, reject, timer });
     send(client, { type: "capture_request", id });
   });
+}
+
+/**
+ * Asks the avatar to do one thing in her browser. Resolves with whatever it answers (the caller
+ * checks the shape); rejects when nobody can answer or it takes too long.
+ */
+export function requestBrowser(op: Record<string, unknown>): Promise<unknown> {
+  const client = avatarClient();
+  if (!client) return Promise.reject(new Error("아바타가 켜져 있지 않아서 브라우저를 쓸 수 없어"));
+
+  const id = randomUUID();
+  return new Promise<unknown>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pendingBrowser.delete(id);
+      reject(new Error("브라우저가 시간 안에 답하지 않았어"));
+    }, BROWSER_TIMEOUT_MS);
+    pendingBrowser.set(id, { client, resolve, reject, timer });
+    send(client, { type: "browser_request", id, op });
+  });
+}
+
+function onBrowserResult(client: Client, msg: { id?: unknown; result?: unknown }): void {
+  if (typeof msg.id !== "string") return;
+  const pending = pendingBrowser.get(msg.id);
+  // Only the client that was asked may answer, and only once.
+  if (!pending || pending.client !== client) return;
+  pendingBrowser.delete(msg.id);
+  clearTimeout(pending.timer);
+  pending.resolve(msg.result);
 }
 
 /* ---------- watch mode: the avatar streams changed frames while the owner has it on ---------- */
@@ -392,6 +435,7 @@ export function startAvatarBridge(emotions: readonly string[]): void {
         // The only thing a connected avatar says to us is an answer to a request.
         const reply = parsed as { type?: string; id?: unknown; on?: unknown; mime?: unknown; data?: unknown; error?: unknown; postings?: unknown };
         if (reply.type === "capture_result") onCaptureResult(client, reply);
+        else if (reply.type === "browser_result") onBrowserResult(client, reply as { id?: unknown; result?: unknown });
         else if (reply.type === "voice_start" || reply.type === "voice_input") onVoiceMessage(reply);
         else if (reply.type === "job_results") onJobMessage(reply);
         else if (reply.type === "dev_result") onDevMessage(reply as Record<string, unknown>);
@@ -421,6 +465,12 @@ export function startAvatarBridge(emotions: readonly string[]): void {
         pendingCaptures.delete(id);
         clearTimeout(pending.timer);
         pending.reject(new Error("화면을 받기 전에 아바타 연결이 끊겼어"));
+      }
+      for (const [id, pending] of pendingBrowser) {
+        if (pending.client !== client) continue;
+        pendingBrowser.delete(id);
+        clearTimeout(pending.timer);
+        pending.reject(new Error("브라우저가 답하기 전에 아바타 연결이 끊겼어"));
       }
       if (watcher === client) {
         watcher = null;

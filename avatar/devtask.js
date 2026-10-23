@@ -22,6 +22,10 @@ const GUARDRAIL_FILES = [
   "orchestrator/src/memory/devtasks.ts",
   "orchestrator/src/dev.ts",
   "orchestrator/src/openclaw/client.ts",
+  // The rules for her browser: which sites, no typing into secrets, the stop before anything irreversible.
+  "avatar/browser.js",
+  "orchestrator/src/browser.ts",
+  "orchestrator/src/avatar/bridge.ts",
   "orchestrator/src/persona.ts",
   "avatar/devtask.js",
   "avatar/devworker.js",

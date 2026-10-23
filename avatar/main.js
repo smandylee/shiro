@@ -1,6 +1,7 @@
 const { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, screen, session } = require("electron");
 const { readFileSync, existsSync, writeFileSync, appendFileSync, statSync, readdirSync, unlinkSync } = require("node:fs");
 const path = require("node:path");
+const { createBrowser } = require("./browser.js");
 
 // Shiro sits on top of whatever the owner is doing, so the window is
 // transparent, frameless, and click-through by default. Interactive mode is a
@@ -37,6 +38,8 @@ function loadJson(file, fallback) {
 }
 
 const config = loadJson(CONFIG_PATH, {});
+// Her own browser. It does nothing, and opens no window, unless config.json turns it on (browser.js).
+const shiroBrowser = createBrowser({ getConfig: () => config, log: logLine });
 // The size she was last left at (wheel or slider) wins over config.json's, and
 // is kept in the same file as her position, which is not committed.
 const savedState = loadJson(STATE_PATH, null);
@@ -334,6 +337,11 @@ app.whenReady().then(() => {
   globalShortcut.register("CommandOrControl+Shift+Q", () => app.quit());
   // Ctrl+Shift+W: she watches the screen with the owner (and stops).
   globalShortcut.register("CommandOrControl+Shift+W", () => setWatching(!watching));
+  // Ctrl+Shift+B: sign in to a site in her browser yourself. The window opens for you and she waits;
+  // press it again (or close the window) when you are done.
+  globalShortcut.register("CommandOrControl+Shift+B", () => {
+    shiroBrowser.toggleLogin().then((r) => logLine(`[browser] sign-in window: ${r.ok ? (r.loginMode ? "opened" : "closed") : r.error}`));
+  });
 
   // Talking to her: the first press starts listening, the next one (or a pause
   // in speech) sends it. Ctrl+Alt+V by default (Ctrl+Alt+M was already taken on
@@ -354,6 +362,7 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => micAllowed(permission));
 
   ipcMain.handle("get-config", () => config);
+  ipcMain.handle("browser", (_e, op) => shiroBrowser.run(op));
   ipcMain.handle("capture-screen", () =>
     captureScreen().catch((err) => ({ error: `화면 캡처 실패: ${err.message}` }))
   );

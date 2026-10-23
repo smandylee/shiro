@@ -119,12 +119,14 @@ Everything else is optional and off by default for anything that touches your ma
 | `showBubble` | Show her replies as a speech bubble next to her. |
 | `mesh` | Draw head and body with the mesh engine so the head can turn. `false` falls back to plain layers. |
 | `allowScreenCapture` | Let her look at your screen (when you ask) and watch you play. |
+| `allowBrowser`, `browserSites`, `browserShow` | Let her use a browser of her own on the sites you list — see [Her browser](browser.md). Off, and an empty list, by default. |
 | `allowMicrophone` | Let you talk to her. |
 | `allowDevTasks`, `devModel`, `devMaxBudgetUsd` | Let her ask for changes to herself — see [Development requests](dev-tasks.md). |
 | `allowDeploy`, `deployHost`, `deployKeyPath`, `deployRemoteDir`, `deployService` | Let an approved change be deployed to your server. |
 
 Hotkeys: **Ctrl+Shift+S** toggles the control panel (move, resize, preview emotions, debug overlay),
-**Ctrl+Shift+W** starts and stops watch mode, **Ctrl+Shift+Q** quits.
+**Ctrl+Shift+W** starts and stops watch mode, **Ctrl+Shift+B** opens her browser's window so you can sign in to a site
+yourself, **Ctrl+Shift+Q** quits.
 
 The orchestrator only sends voice to the avatar while one is connected, so leaving the avatar off costs nothing.
 
@@ -207,6 +209,7 @@ Notes:
 |---|---|
 | Gmail, Calendar, Drive notes | [Google integration](google-integration.md) |
 | Running shell commands you approve | [Running commands (OpenClaw)](command-execution.md) |
+| Reading and using websites you allow | [Her browser](browser.md) |
 | Joining a Discord server | [Server chat](guild-chat.md) |
 | She asks for changes to herself | [Development requests](dev-tasks.md) |
 | Minecraft | [Minecraft design](minecraft.md) and [running the bot](../minecraft/README.md) |

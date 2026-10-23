@@ -35,12 +35,14 @@ orchestrator/   TS, ESM, tsx로 실행. VM(홍콩 Lightsail)에서 systemd로 24
   src/voice.ts        음성 받아쓰기 (Gemini)
   src/memory/         SQLite(단기·설정·연락처·할일·사용량·프로필·기분·궁금증) + Pinecone(장기)
     mood.ts           기분과 "남은 마음" (계산·문구는 mood-core.ts, 새벽 회고는 mood-learn.ts)
-  src/avatar/bridge.ts  WebSocket 서버(:18790), 토큰 인증
+  src/browser.ts      브라우저 도구: 요청 검증, 결과 정제, 같은 턴 승인 거부
+  src/avatar/bridge.ts  WebSocket 서버(:18790), 토큰 인증, 클라이언트 역할(avatar/dev/minecraft)
 avatar/         Electron, CommonJS. 로컬 PC에서 투명 오버레이로.
   renderer/app.js       레이어 합성 + 애니메이션 루프
   renderer/emotions.js  감정별 포즈 값
   renderer/tail.js      꼬리 벤딩(체인 + 삼각형 워프)
   mesh/                 얼굴 회전용 메시 엔진
+  browser.js            시로 전용 브라우저 (허용 사이트·비밀번호 금지·되돌리기 어려운 행동 승인 — 규칙은 여기서 코드로 강제)
   tools/*.mjs           레이어 빌드 파이프라인 및 확인용 렌더
 minecraft/      Node. 마크 전용 PC에서 시로가 혼자 노는 봇 (설계는 docs/minecraft.md)
 tools/          deploy(배포 스크립트), jobspy(채용 크롤러), autostart, google-reauth.js
@@ -53,9 +55,12 @@ cd orchestrator && npm start     # tsx src/index.ts
 cd avatar && npm start           # electron .
 cd avatar && node tools/preview-tail.mjs 34 3 5   # Electron 없이 그림으로 확인
 cd avatar && node tools/record-demo.mjs          # 진짜 렌더러를 크롬으로 녹화해 README 용 GIF 로 (puppeteer-core·ffmpeg 필요)
+cd avatar && npx electron tools/test-browser.js  # 브라우저 안전 규칙 시험 (진짜 Electron 필요, 창이 잠깐 뜬다)
+cd orchestrator && npx tsx tests/browser.test.ts && npx tsx tests/bridge-roles.test.ts   # 브리지·브라우저 서버 쪽 시험
 ```
 
-테스트 스위트는 없다. 아바타 변경은 `tools/preview-*.mjs`로 렌더해서 눈으로 확인한다.
+테스트 스위트는 없지만, **안전 규칙이 걸린 곳(브라우저, 브리지 역할)은 시험 파일이 있다** — 고치면 위 시험을 돌린다.
+아바타 변경은 `tools/preview-*.mjs`로 렌더해서 눈으로 확인한다.
 orchestrator 로직은 모델·DB를 가짜로 바꿔 단위로 시험하고, 프롬프트 행동은 같은 말에
 옵션을 끔/켬으로 서버 모델에 던져 비교한다 (예: WORKLOG 10/19의 기분·궁금증 기록).
 
@@ -79,6 +84,11 @@ orchestrator 로직은 모델·DB를 가짜로 바꿔 단위로 시험하고, �
 - **먼저 말 거는 건 `chatter.ts`의 조건을 모두 따른다**: 주인님이 30분 넘게 조용하고,
   안 답한 질문이 없고, `mute_chatter`로 막히지 않았을 때만. 새 출처(`wonder.ts` 같은)를
   만들어도 이 조건을 우회하지 않는다.
+- **브리지 클라이언트는 auth 프레임에 `role`(avatar/dev/minecraft)을 밝힌다.** 화면 캡처·브라우저 요청은 avatar 역할에게만
+  간다 (예전엔 "마지막에 접속한 클라이언트"로 보내서, 개발 워커가 늦게 붙으면 캡처가 전부 시간 초과됐다). 클라이언트를 새로 만들면 role 을 붙인다.
+- **시로 전용 브라우저의 안전 규칙은 `avatar/browser.js`에서 코드로 강제한다** (허용 사이트·리다이렉트 검사, 비밀번호/인증번호 칸 입력 금지,
+  제출·삭제·결제·로그아웃은 승인 전 정지, 로그인은 주인님이 직접). 프롬프트에 맡기지 않는다. 승인은 **멈춘 바로 그 턴에는 못 하고** 다음 메시지에서만 한다
+  (`browser.ts`). Electron 창을 `show()` 했다가 `hide()` 하면 그 뒤에 다른 출처로 이동한 페이지가 클릭을 못 받는다 — 숨기지 말고 `destroy()` 후 새로 만든다.
 - **응답이 갑자기 몇 분씩 느려지면 서비스부터 재시작한다.** 서버·네트워크·모델은 정상이고
   돌던 프로세스만 느린 일이 있었다 (WORKLOG 10/19).
 - **이 맥북(macOS 13.0)에서는 `better-sqlite3`가 단독으로도 segfault**라서 orchestrator를

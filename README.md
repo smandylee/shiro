@@ -53,6 +53,9 @@ what she feels.
   whenever something has to be *done on a computer* — today, running a shell command — she hands the job to an
   OpenClaw gateway, which runs an agent with real tools and reports back. She proposes the exact command, you read it
   and say yes in a later message, and only then does it go out. [How it works](docs/command-execution.md).
+- **A browser of her own.** Built into the avatar app: she opens pages on the sites you allow, reads them, clicks and
+  types, and **stops to ask before anything that cannot be taken back.** Signing in is yours — she never types a
+  password. [How it works](docs/browser.md).
 - **Minecraft.** A bot plays on a local server by itself: reflexes in plain code (eating, fleeing, kiting,
   sleeping), skills (mining, crafting, tools) and a Gemini planner that picks the next few skills.
 - **She can ask for changes to herself.** She writes a request in words; you approve; Claude Code builds it
@@ -72,7 +75,7 @@ flowchart LR
     end
 
     O <-- "approved commands" --> C["OpenClaw gateway<br/>her hands"]
-    O <-- "WebSocket bridge<br/>token-authenticated" --> A["Avatar<br/>Electron overlay"]
+    O <-- "WebSocket bridge<br/>token-authenticated" --> A["Avatar<br/>Electron overlay<br/>+ her browser"]
     O <-- "WebSocket bridge" --> W["Dev worker<br/>Claude Code"]
     O <-- "WebSocket bridge" --> M["Minecraft bot<br/>mineflayer"]
     M <--> Paper[("Paper server<br/>localhost only")]
@@ -100,6 +103,8 @@ Shiro can read your mail and run commands, so the defaults are strict:
   web search and shell access are never offered to them.
 - **Approval gates.** Shell commands, development requests and deployments each need an explicit "yes" from
   the owner, and an approval for one never carries over to the next.
+- **Her browser is fenced.** Only the sites you list, no typing into passwords, and nothing irreversible — submit, pay,
+  delete, sign out — without your yes in a later message. The rules are enforced in the app, not by asking the model.
 - **Server chat is opt-in per server**, reads only public channels, stores nothing, has rate limits, and never
   gets tools or personal information. [Details](docs/guild-chat.md).
 - **Untrusted text stays data.** Mail, web pages and anything read off the screen are treated as content to
@@ -144,6 +149,7 @@ watch mode, `Ctrl+Shift+Q` quits.
 | [The avatar](docs/avatar.md) | How the art became a rig: the layer pipeline, tail bending, face turning |
 | [Google integration](docs/google-integration.md) | Gmail, Calendar and Drive: OAuth, and why tokens expire every week |
 | [Server chat](docs/guild-chat.md) | Letting her read and join a Discord server safely |
+| [Her browser](docs/browser.md) | Letting her read and use the sites you allow, with you doing the signing in |
 | [Running commands](docs/command-execution.md) | The OpenClaw gateway, the approval flow, and where commands actually run |
 | [Development requests](docs/dev-tasks.md) | Shiro asking for features, Claude Code building them, and the two approvals |
 | [Minecraft](docs/minecraft.md) · [running it](minecraft/README.md) | The design and how to run the bot |
