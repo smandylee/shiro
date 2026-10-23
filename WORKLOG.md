@@ -286,6 +286,11 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
   OpenClaw 없이 쓰는 법(`openclaw/client.ts` 의 `runApprovedCommand` 하나만 바꾸면 됨). README·getting-started·`.env.example` 에서 연결했고, `~/.openclaw/secrets/` 는 구글 연동이 OpenClaw 를 필요로 해서가 아니라 기본 경로 이름일 뿐이라고 `docs/google-integration.md` 에 적었다.
   주인님이 "시로가 일할 땐 OpenClaw 로 일할 텐데" 라고 해서 README 에서 OpenClaw 를 선택 기능 한 줄이 아니라 **시로의 손**(Agency 첫 항목, 구조도의 노드, "마음과 손은 분리돼 있다")으로 올렸다. 코드가 실제로 OpenClaw 에 시키는 건 승인된 셸 명령 하나뿐이라 그 범위만 썼다(메일·일정·노트는 구글 API 직접).
   OpenClaw 공식 문서(`docs.openclaw.ai/gateway/openai-http-api`)로 확인한 내용만 썼다. **서버의 실제 OpenClaw 설정(명령이 서버에서 도는지, 다른 PC 로 이어졌는지)은 내가 모른다** — 주인님이 아는 대로 `docs/command-execution.md` 의 "Where the commands run" 을 확인해 주면 좋다.
+- **서버의 OpenClaw 를 읽기만 해서 확인했다** (설정은 안 바꿨다, 비밀값은 가려서 봤다). OpenClaw `2026.7.1-2`, `openclaw-gateway.service`, **시로와 같은 `ubuntu` 사용자**, 루프백과 Tailscale 주소 양쪽에서 열림, 토큰 인증, 채팅 엔드포인트 켜짐.
+  **`tools.exec` 가 `host: "node"` 로 짝지어진 노드(주인님 노트북)에 묶여 있다** — 시로가 승인받아 보낸 명령은 **서버가 아니라 주인님 PC 에서 실행된다** (`security: "full"`, `ask: "on-miss"`). 에이전트는 `main`·`pc` 둘이고 시로는 `openclaw/default` 로 부른다. 웹 검색·디스코드 채널은 꺼져 있다.
+  내가 처음엔 "게이트웨이가 도는 컴퓨터에서 실행된다"고 고쳤다가 이 설정을 보고 다시 정정했다 (`docs/command-execution.md` 는 "exec 호스트는 OpenClaw 설정이 정한다"로 고침).
+- **OpenClaw 확장은 하지 않기로 했다** (주인님 결정). 검토한 것: PC 수업 자료를 읽는 읽기 전용 에이전트, 서버 자기 점검, 정해진 시간 감시(`cron`), 다른 채널 메시지. 등급별 에이전트(도구 정책은 모델 호출 전에 적용되므로 읽기 에이전트에는 쓰기·실행 도구를 아예 주지 않는다)가 안전 설계의 핵심이라는 결론은 남겨 둔다.
+  다시 하게 되면: 지금은 시로가 에이전트를 `openclaw/default` 하나로만 부른다 (`x-openclaw-agent-id` 헤더나 `model` 필드로 에이전트를 고를 수 있다). 서버 점검은 OpenClaw 보다 **시로 코드의 고정된 읽기 명령**이 더 단순하고 안전하다.
 - 남은 것·결정: 아래 [다음] "★ 저장소를 외국 사람이 찾게".
 
 ### 2026-10-19 — 서버 배포: 스스로 궁금해하기 + 음성 생각 끄기 (`bd219a7`)
