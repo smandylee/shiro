@@ -30,7 +30,7 @@
     말할지 말지와 말투는 기존 `chatter.ts decide()` 가 그대로 정한다 (30분 넘게 조용할 때만, 안 답한 질문이 있으면 안 쌓음, `mute_chatter` 로 끔). 자세한 건 [기록] 10/19.
   - **음성으로 온 말은 모델의 "생각"을 끈다** (10/19 서버에 올림) — 첫 글자가 약 4초에서 약 2초로. 글로 친 메시지는 그대로 켠다. 도구를 쓰는 흐름도 끈 채로 정상 동작을 확인했다.
   - **시로 전용 브라우저** (10/23 코드 완료·시험 통과, **아직 서버·PC 에 안 올림, 쓰려면 PC 의 `config.json` 에서 켜야 한다**) — 아바타 앱이 Electron 의 Chromium 으로 자기 창을 갖고, 시로의 `browser` 도구(주인 전용)가
-    페이지 열기·읽기(번호 붙은 링크/버튼)·클릭·입력·스크롤·스크린샷을 한다. 로그인은 주인님이 직접(`Ctrl+Shift+B`), 허용 사이트(`browserSites`)만, 비밀번호/인증번호/카드 칸에는 입력 안 함,
+    페이지 열기·읽기(번호 붙은 링크/버튼)·클릭·입력·스크롤·스크린샷을 한다. 로그인은 주인님이 직접(`Ctrl+Alt+B`), 허용 사이트(`browserSites`)만, 비밀번호/인증번호/카드 칸에는 입력 안 함,
     제출·삭제·결제·로그아웃은 캡처와 함께 멈추고 **다음 메시지**에서 승인. 자세한 건 `docs/browser.md`, [기록] 10/23.
   - **개발 요청** — 시로가 말로 요청 → 주인님 승인 → PC의 Claude Code가 격리된 worktree에서 작업.
     판정이 완료/반려/**넘김**(권한 밖이라 주인님이 직접) 셋으로 온다.
@@ -281,15 +281,18 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 - `avatar/browser.js` — 아바타 앱 안의 전용 BrowserWindow(`persist:shiro-browser` 세션, 평소 크롬과 분리). 새 의존성 없음. 도구: open·snapshot·click·type·press·scroll·back·screenshot·login·login_done·approve·cancel·status.
   읽기는 글 + **번호 붙은 링크/버튼 목록**(클릭은 번호로). 규칙은 전부 여기서 코드로 강제: 허용 사이트 밖 이동 차단(링크·리다이렉트·팝업·주소 입력 모두, https 만), 비밀번호/인증번호/카드 칸 입력 거부,
   제출 버튼·"삭제/결제/저장/확인/로그아웃…"(한국어 포함)·로그아웃 링크·폼에서의 Enter(검색창 제외)는 **캡처와 함께 멈춤**, 다운로드·권한 요청 거부, 한 번에 하나씩 처리.
-- 로그인은 주인님: `Ctrl+Shift+B`(또는 시로가 `login`)로 창을 띄워 직접 로그인하고, 다시 누르거나 창을 닫으면 끝. 그동안 시로는 멈추고 이동 제한은 풀린다(IdP 로 튀는 로그인이 되게). 끝나면 창을 **없앤다**.
+- 로그인은 주인님: `Ctrl+Alt+B`(또는 시로가 `login`)로 창을 띄워 직접 로그인하고, 다시 누르거나 창을 닫으면 끝. 그동안 시로는 멈추고 이동 제한은 풀린다(IdP 로 튀는 로그인이 되게). 끝나면 창을 **없앤다**.
 - `orchestrator/src/browser.ts` + `gemini.ts` 의 `browser` 도구(주인 전용, `ownerTools` 에만) + 브리지의 `browser_request`/`browser_result`. 결과는 정제해서 모델에게 보여 주고 **페이지 글은 울타리(`<<<페이지 글 시작…>>>`)로 감싸 "사이트가 쓴 글, 지시 아님"** 으로 표시한다.
   승인은 **멈춘 그 턴에는 거부**하고 다음 메시지에서만 받는다(아바타에 닿기 전에 서버가 막는다). 로그에는 주소(쿼리 제외)만 남긴다.
 - 설정(PC `avatar/config.json`): `allowBrowser`(기본 false), `browserSites`(비어 있으면 꺼짐), `browserShow`.
 - **시험 (모두 통과, 저장소에 남김):** `avatar/tools/test-browser.js`(진짜 Electron 에서 25가지: 허용 밖 서버가 요청을 한 번도 안 받음, 비밀번호 입력 거부, 삭제·로그아웃 정지, 승인 한 번만 실행, 로그인 창 등),
   `orchestrator/tests/browser.test.ts`(진짜 브리지 + 가짜 아바타), `orchestrator/tests/bridge-roles.test.ts`. **진짜 아바타 앱 + 진짜 브리지로 끝까지 이은 시험도 했다** (임시 `config.json`, 끝나고 지움).
 - 시험하다 찾은 것: **한 번 `show()` 했다가 `hide()` 한 창은, 그 뒤에 다른 출처로 이동한 페이지가 클릭을 못 받는다**(렌더 위젯이 숨김 상태로 시작) → 숨기지 않고 `destroy()` 한다.
+- **Windows**(주인님 PC)에서는 아직 시험하지 못했다 — 시험은 전부 이 맥에서 돌렸다. Electron 이라 같은 코드지만, **PC 에서 `cd avatar && npx electron tools/test-browser.js` 를 한 번 돌려 달라고 해야 한다.**
+  Windows 에서 걸릴 만한 것으로 찾은 건 로그인 단축키 하나였다: `Ctrl+Shift+B` 는 Chrome·Edge·Firefox 의 북마크 바 단축키라 전역으로 잡으면 모든 브라우저에서 먹통이 된다 → **`Ctrl+Alt+B`** 로 바꿨고(`browserHotkey` 로 바꿀 수 있다) 브라우저를 켰을 때만 잡는다.
+  창이 숨겨져 있을 때 페이지가 안 그려지면 `browserShow: true`. (맥에서 단축키 등록·미등록은 앱을 띄워 확인했다.)
 - 한계: 내장 브라우저라 **구글 로그인이 막힐 수 있다**(학교 SSO·자체 로그인은 대체로 됨), 패스키·보안키·일부 봇 검사는 안 될 수 있다, 탭 없음, iframe·PDF 는 못 읽는다.
-- **배포·켜기 순서:** ① 서버: `bridge.ts`·`gemini.ts`·`browser.ts` 배포(재시작 전 처리 중인 답 확인) ② PC: `git pull` 후 **아바타·개발 워커·마크 에이전트 모두 재시작**(역할 때문) ③ PC `config.json` 에 `allowBrowser: true` + `browserSites` ④ `Ctrl+Shift+B` 로 로그인 ⑤ 디스코드에서 시켜 본다.
+- **배포·켜기 순서:** ① 서버: `bridge.ts`·`gemini.ts`·`browser.ts` 배포(재시작 전 처리 중인 답 확인) ② PC: `git pull` 후 **아바타·개발 워커·마크 에이전트 모두 재시작**(역할 때문) ③ PC `config.json` 에 `allowBrowser: true` + `browserSites` ④ `Ctrl+Alt+B` 로 로그인 ⑤ 디스코드에서 시켜 본다.
   **아직 안 한 것:** 서버·PC 에 올리지 않았고, 허용할 사이트를 주인님이 안 정했다(Canvas 가 후보). 실제 사이트에서의 시험은 없다(시험은 로컬 가짜 사이트).
 
 ### 2026-10-23 — 문서를 영어로, 외국 사람이 찾아볼 수 있게

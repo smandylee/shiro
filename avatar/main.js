@@ -337,11 +337,17 @@ app.whenReady().then(() => {
   globalShortcut.register("CommandOrControl+Shift+Q", () => app.quit());
   // Ctrl+Shift+W: she watches the screen with the owner (and stops).
   globalShortcut.register("CommandOrControl+Shift+W", () => setWatching(!watching));
-  // Ctrl+Shift+B: sign in to a site in her browser yourself. The window opens for you and she waits;
-  // press it again (or close the window) when you are done.
-  globalShortcut.register("CommandOrControl+Shift+B", () => {
-    shiroBrowser.toggleLogin().then((r) => logLine(`[browser] sign-in window: ${r.ok ? (r.loginMode ? "opened" : "closed") : r.error}`));
-  });
+  // Ctrl+Alt+B (`browserHotkey` in config.json overrides it): sign in to a site in her browser yourself.
+  // The window opens for you and she waits; press it again (or close the window) when you are done.
+  // Ctrl+Shift+B is taken on purpose: Chrome, Edge and Firefox use it for the bookmarks bar, and a global
+  // shortcut would swallow it in every one of them. Only grabbed when the browser is switched on at all.
+  if (config.allowBrowser === true) {
+    const browserKey = typeof config.browserHotkey === "string" && config.browserHotkey ? config.browserHotkey : "CommandOrControl+Alt+B";
+    const registered = globalShortcut.register(browserKey, () => {
+      shiroBrowser.toggleLogin().then((r) => logLine(`[browser] sign-in window: ${r.ok ? (r.loginMode ? "opened" : "closed") : r.error}`));
+    });
+    logLine(`[browser] on; sign-in hotkey ${browserKey} ${registered ? "registered" : "could NOT be registered (another program has it); set browserHotkey in config.json, or ask her to open the sign-in window"}`);
+  }
 
   // Talking to her: the first press starts listening, the next one (or a pause
   // in speech) sends it. Ctrl+Alt+V by default (Ctrl+Alt+M was already taken on

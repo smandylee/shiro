@@ -39,9 +39,9 @@ Choose the list with care. Leave out anything where a mistake is expensive — o
 Her browser has a **profile of its own**, separate from the browser you use every day. Nothing in it is signed in until you
 sign in, by hand, in that window. She never sees your password and never types one.
 
-1. Ask her to ("I need to log in"), or press **Ctrl+Shift+B**. A window opens.
+1. Ask her to ("I need to log in"), or press **Ctrl+Alt+B** (change it with `browserHotkey` in `config.json`). A window opens.
 2. Sign in the way you normally would: password, two-factor code, a CAPTCHA, whatever the site wants.
-3. Press **Ctrl+Shift+B** again, or close the window, and tell her you are done.
+3. Press **Ctrl+Alt+B** again, or close the window, and tell her you are done.
 
 While that window is open she waits: she cannot act, and the site-list restriction is lifted so that a sign-in that
 bounces through an identity provider works. When you finish, the restriction is back and the window closes. The
@@ -95,6 +95,23 @@ The test is conservative on purpose: it will sometimes stop a harmless "Save" or
 - Passkeys, hardware security keys and some bot checks may not work. A CAPTCHA is yours to solve, in the sign-in window.
 - One window, one page: no tabs. Content inside embedded frames, canvas and PDF viewers is not read.
 - Reading a page costs model tokens (a few thousand per step), so a long browsing job is not free.
+
+## Windows, macOS and Linux
+
+It is plain Electron, so the same code runs on all three, and the avatar this lives in is used on Windows. **The tests so
+far were run on macOS only.** On a Windows PC, run them once before you rely on it:
+
+```powershell
+cd avatar
+npx electron tools/test-browser.js
+```
+
+A window may flash up while the sign-in test runs. If everything passes you are in the same position as on macOS.
+
+Two Windows notes. The sign-in key is **Ctrl+Alt+B** rather than the more obvious Ctrl+Shift+B, because Chrome, Edge and
+Firefox use Ctrl+Shift+B for the bookmarks bar and a global shortcut would swallow it in all of them; it is only grabbed
+while `allowBrowser` is on, and the log says so if another program already has it. And if a page does not render while her
+window is hidden, set `browserShow: true` so the window stays on screen.
 
 ## Starting over
 

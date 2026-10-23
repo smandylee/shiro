@@ -119,13 +119,13 @@ Everything else is optional and off by default for anything that touches your ma
 | `showBubble` | Show her replies as a speech bubble next to her. |
 | `mesh` | Draw head and body with the mesh engine so the head can turn. `false` falls back to plain layers. |
 | `allowScreenCapture` | Let her look at your screen (when you ask) and watch you play. |
-| `allowBrowser`, `browserSites`, `browserShow` | Let her use a browser of her own on the sites you list — see [Her browser](browser.md). Off, and an empty list, by default. |
+| `allowBrowser`, `browserSites`, `browserShow`, `browserHotkey` | Let her use a browser of her own on the sites you list — see [Her browser](browser.md). Off, and an empty list, by default. `browserHotkey` (default `Ctrl+Alt+B`) opens the sign-in window. |
 | `allowMicrophone` | Let you talk to her. |
 | `allowDevTasks`, `devModel`, `devMaxBudgetUsd` | Let her ask for changes to herself — see [Development requests](dev-tasks.md). |
 | `allowDeploy`, `deployHost`, `deployKeyPath`, `deployRemoteDir`, `deployService` | Let an approved change be deployed to your server. |
 
 Hotkeys: **Ctrl+Shift+S** toggles the control panel (move, resize, preview emotions, debug overlay),
-**Ctrl+Shift+W** starts and stops watch mode, **Ctrl+Shift+B** opens her browser's window so you can sign in to a site
+**Ctrl+Shift+W** starts and stops watch mode, **Ctrl+Alt+B** opens her browser's window so you can sign in to a site
 yourself, **Ctrl+Shift+Q** quits.
 
 The orchestrator only sends voice to the avatar while one is connected, so leaving the avatar off costs nothing.
