@@ -699,7 +699,7 @@ function connect() {
   setStatus("연결 중…");
   const ws = new WebSocket(config.bridgeUrl);
 
-  ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token: config.bridgeToken }));
+  ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token: config.bridgeToken, role: "avatar" }));
 
   ws.onmessage = (msg) => {
     let event;

@@ -84,7 +84,7 @@ function connect() {
   const ws = new WebSocket(url);
   socket = ws;
 
-  ws.on("open", () => ws.send(JSON.stringify({ type: "auth", token: config.bridgeToken })));
+  ws.on("open", () => ws.send(JSON.stringify({ type: "auth", token: config.bridgeToken, role: "dev" })));
 
   ws.on("message", (raw) => {
     let event;

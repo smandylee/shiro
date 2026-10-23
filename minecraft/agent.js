@@ -179,7 +179,7 @@ function startAgent({ bot, skills, state, log }) {
     const ws = new WebSocket(url);
     socket = ws;
 
-    ws.on("open", () => ws.send(JSON.stringify({ type: "auth", token })));
+    ws.on("open", () => ws.send(JSON.stringify({ type: "auth", token, role: "minecraft" })));
     ws.on("message", (raw) => {
       let event;
       try {

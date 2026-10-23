@@ -49,10 +49,16 @@ export type RawJobPosting = {
   query?: string | null;
 };
 
+/** What a connected program says it is, so a request goes to the one that can answer it. */
+export type ClientRole = "avatar" | "dev" | "minecraft";
+const ROLES: readonly string[] = ["avatar", "dev", "minecraft"];
+
 type Client = {
   socket: WebSocket;
   authed: boolean;
   alive: boolean;
+  /** Declared in the auth frame. Absent for a client from before roles existed. */
+  role?: ClientRole;
 };
 
 const AUTH_TIMEOUT_MS = 5_000;
@@ -99,17 +105,30 @@ const MAX_CAPTURE_BASE64 = 8 * 1024 * 1024;
 const CAPTURE_MIMES = new Set(["image/jpeg", "image/png"]);
 
 /**
+ * The avatar app: the one to ask for a picture of the screen, or for browser work.
+ *
+ * Three programs share the bridge — the avatar, the dev worker and the Minecraft
+ * bot — and only the avatar can answer such a request. Sending it to whichever
+ * connected last meant that whenever the dev worker connected after the avatar,
+ * every capture timed out. A client that declared itself the avatar is preferred;
+ * one that declared nothing (an avatar from before roles) is used only when no
+ * client has declared a role, so the worker and the bot are never mistaken for it.
+ */
+export function avatarClient(): Client | undefined {
+  const open = [...clients].filter((c) => c.authed && c.socket.readyState === WebSocket.OPEN);
+  const declared = open.filter((c) => c.role === "avatar");
+  if (declared.length > 0) return declared[declared.length - 1];
+  return open.filter((c) => c.role === undefined).pop();
+}
+
+/**
  * Asks the connected avatar for one picture of the owner's screen. Rejects
  * with a reason that reads well to the owner when nobody is connected, the
  * avatar has screen capture switched off, or it doesn't answer in time.
  */
 export function requestScreenCapture(): Promise<ScreenCapture> {
-  let target: Client | undefined;
-  for (const c of clients) {
-    if (c.authed && c.socket.readyState === WebSocket.OPEN) target = c;
-  }
-  if (!target) return Promise.reject(new Error("아바타가 켜져 있지 않아서 화면을 볼 수 없어"));
-  const client = target;
+  const client = avatarClient();
+  if (!client) return Promise.reject(new Error("아바타가 켜져 있지 않아서 화면을 볼 수 없어"));
 
   const id = randomUUID();
   return new Promise<ScreenCapture>((resolve, reject) => {
@@ -381,12 +400,14 @@ export function startAvatarBridge(emotions: readonly string[]): void {
         else onWatchMessage(client, reply);
         return;
       }
-      const msg = parsed as { type?: string; token?: string };
+      const msg = parsed as { type?: string; token?: string; role?: string };
       if (msg.type !== "auth" || msg.token !== token) {
         socket.close(4003, "unauthorized");
         return;
       }
       client.authed = true;
+      // Said inside the same frame as the token, and kept only once the token has checked out.
+      if (typeof msg.role === "string" && ROLES.includes(msg.role)) client.role = msg.role as ClientRole;
       clearTimeout(authTimer);
       console.log("[avatar] client connected");
       send(client, { type: "hello", emotions });
