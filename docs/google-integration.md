@@ -17,6 +17,9 @@ Scopes requested: `gmail.modify`, `calendar`, `drive.file` (Drive access is limi
    ```
 
    Both files should be mode `600`.
+
+   The folder name `.openclaw` is only a leftover default from the author's setup: **the Google integration does not
+   need OpenClaw.** Point `GOOGLE_OAUTH_CLIENT_PATH` and `GOOGLE_OAUTH_TOKEN_PATH` at any private folder you like.
 4. Sign in once:
 
    ```bash

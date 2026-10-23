@@ -280,6 +280,11 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 - **솔직하게 적은 것:** 시로는 **한국어로 말한다**(프롬프트·도구 설명이 한국어, 번역할 파일 목록을 README 에 적었다). 개인 프로젝트라 한 줄 설치가 아니다. Windows 에서 개발했고 mac·Linux 는 시험 못 했다.
 - 확인: 영어 문서에 남은 한글은 실제 명령어(`!시로 켜기`, 마크 채팅 명령)뿐이고 그렇다고 밝혔다. 상대 링크·그림 경로 깨진 것 없음. `tsx --env-file` 로 `.env` 읽는 것을 이 맥에서 확인.
 - **GitHub 설정**(소개·토픽 10개)은 주인님이 OK 해서 `gh repo edit` 로 적용했다. 라이선스가 `Other` 로 잡혀서 `LICENSE` 를 순수 MIT 로 되돌리고 안내를 `NOTICE.md` 로 옮겼다 (`cb9c9a8`).
+- **OpenClaw 설명이 빠져 있었다** (주인님이 지적). 영어 README 에는 변수 이름만 있고 무엇인지·왜 필요한지가 없었고, **"내 PC 에서 명령을 실행한다"는 내 문구는 틀렸다** — 명령은 **OpenClaw 게이트웨이가 도는 컴퓨터**에서 실행된다
+  (기본 주소 `127.0.0.1:18789` 라서 보통 오케스트레이터와 같은 서버). `docs/command-execution.md` 를 새로 썼다: 승인 흐름(올리기만 하고 실행 안 함 → **같은 턴에서는 `approve_command` 거부** → 다음 메시지로 승인, 10분 만료, 새 제안이 이전 걸 대체, 출력 3000자·120초 제한),
+  설정(엔드포인트는 기본 꺼짐: `gateway.http.endpoints.chatCompletions.enabled`, 토큰), 어디서 실행되는지, **솔직한 안전 설명**(토큰은 운영자 전체 권한이라 사설망에만, "그대로 실행"은 AI 에이전트에 대한 부탁일 뿐 보장이 아니라 OpenClaw 권한·샌드박스가 진짜 한계),
+  OpenClaw 없이 쓰는 법(`openclaw/client.ts` 의 `runApprovedCommand` 하나만 바꾸면 됨). README·getting-started·`.env.example` 에서 연결했고, `~/.openclaw/secrets/` 는 구글 연동이 OpenClaw 를 필요로 해서가 아니라 기본 경로 이름일 뿐이라고 `docs/google-integration.md` 에 적었다.
+  OpenClaw 공식 문서(`docs.openclaw.ai/gateway/openai-http-api`)로 확인한 내용만 썼다. **서버의 실제 OpenClaw 설정(명령이 서버에서 도는지, 다른 PC 로 이어졌는지)은 내가 모른다** — 주인님이 아는 대로 `docs/command-execution.md` 의 "Where the commands run" 을 확인해 주면 좋다.
 - 남은 것·결정: 아래 [다음] "★ 저장소를 외국 사람이 찾게".
 
 ### 2026-10-19 — 서버 배포: 스스로 궁금해하기 + 음성 생각 끄기 (`bd219a7`)

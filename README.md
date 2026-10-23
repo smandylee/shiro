@@ -31,7 +31,8 @@ what she feels.
 - Talks in DMs (and, if you allow it, in a server). Replies stream in as chat bubbles, a line at a time.
 - Gmail, Google Calendar and Drive notes, a to-do list, deadlines from a Canvas calendar feed,
   web search, and job postings from a small crawler.
-- Runs shell commands on your PC — **only after you approve the exact command** in chat.
+- Runs shell commands through an [OpenClaw](https://docs.openclaw.ai) gateway — **only after you approve the exact
+  command** in chat, and only if you set that up ([how it works](docs/command-execution.md)).
 - Looks at your screen when you ask, and can watch you play a game and comment.
 
 **Memory and personality**
@@ -106,7 +107,7 @@ Shiro can read your mail and run commands, so the defaults are strict:
 ## Quick start
 
 You need Node.js 20.6+, a Discord bot, and a Google Cloud project with Vertex AI enabled. Everything else
-is optional. The full walkthrough, with every setting, is in **[docs/getting-started.md](docs/getting-started.md)**.
+(long-term memory, voice, Google account, command execution through OpenClaw, the avatar) is optional. The full walkthrough, with every setting, is in **[docs/getting-started.md](docs/getting-started.md)**.
 
 ```bash
 git clone https://github.com/smandylee/shiro.git
@@ -138,6 +139,7 @@ watch mode, `Ctrl+Shift+Q` quits.
 | [The avatar](docs/avatar.md) | How the art became a rig: the layer pipeline, tail bending, face turning |
 | [Google integration](docs/google-integration.md) | Gmail, Calendar and Drive: OAuth, and why tokens expire every week |
 | [Server chat](docs/guild-chat.md) | Letting her read and join a Discord server safely |
+| [Running commands](docs/command-execution.md) | The OpenClaw gateway, the approval flow, and where commands actually run |
 | [Development requests](docs/dev-tasks.md) | Shiro asking for features, Claude Code building them, and the two approvals |
 | [Minecraft](docs/minecraft.md) · [running it](minecraft/README.md) | The design and how to run the bot |
 | [Job crawler](tools/jobspy/README.md) | The small crawler behind the job-postings feature |

@@ -26,7 +26,8 @@ shape. Where something is specific to it, this says so.
 | **A Google Cloud project with Vertex AI enabled** | All language-model calls go to Gemini through Vertex AI. |
 
 Optional: a Pinecone account (long-term memory), an ElevenLabs or Typecast account (voice), a Google OAuth client
-(Gmail / Calendar / Drive), Claude Code (development requests), a Paper server (Minecraft).
+(Gmail / Calendar / Drive), an [OpenClaw](https://docs.openclaw.ai) gateway (running commands you approve), Claude Code
+(development requests), a Paper server (Minecraft).
 
 ## 2. The orchestrator
 
@@ -67,7 +68,7 @@ Nothing crashes; the feature just stays off, and the log says so once at startup
 | `AVATAR_BRIDGE_TOKEN` | The bridge does not start, so no avatar, no voice, no dev worker, no Minecraft planner. |
 | TTS keys | No voice. Everything else is unchanged. |
 | Google OAuth files | Gmail, Calendar and Drive tools report an error instead of working. |
-| `OPENCLAW_GATEWAY_TOKEN` | She cannot run shell commands. |
+| `OPENCLAW_GATEWAY_TOKEN` | She cannot run shell commands. See [Running commands](command-execution.md). |
 | `CANVAS_ICS_URL` | No Canvas deadline reminders. |
 
 ### Settings you may want to change
@@ -201,6 +202,7 @@ Notes:
 | Feature | Guide |
 |---|---|
 | Gmail, Calendar, Drive notes | [Google integration](google-integration.md) |
+| Running shell commands you approve | [Running commands (OpenClaw)](command-execution.md) |
 | Joining a Discord server | [Server chat](guild-chat.md) |
 | She asks for changes to herself | [Development requests](dev-tasks.md) |
 | Minecraft | [Minecraft design](minecraft.md) and [running the bot](../minecraft/README.md) |
