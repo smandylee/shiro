@@ -7,6 +7,8 @@
 **공개 문서는 영어다.** `README.md`, `docs/`, 각 폴더의 `README.md`는 외국 사람이 읽게 영어로 쓴다
 (2026-10-23에 한국어를 영어로 바꿨다). 일부러 한국어로 남긴 건 **작업용인 `WORKLOG.md`·`CLAUDE.md`** 뿐이다.
 그림 파일을 새로 추가하면 `LICENSE-ASSETS.md`의 표에도 넣는다 (코드는 MIT, 그림은 CC BY-NC 4.0).
+**`LICENSE`는 표준 MIT 본문 그대로 둔다** — 뭘 덧붙이면 GitHub가 라이선스를 인식하지 못한다 (한 번 `Other`로 잡혔다).
+부가 설명은 `NOTICE.md`에 쓴다.
 
 ## 세션 규칙
 

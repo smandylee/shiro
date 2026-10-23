@@ -136,14 +136,17 @@ AIRI(`moeru-ai/airi`, MIT, 베타) 의 `integrations/discord-bot` 을 읽었다 
 - **C. 시로의 생활 전하기** *(중간)*: 마크 사건을 기억에 남기고 먼저 말하게. 밤 생존이 풀려야 의미 있고, 봇 자동 시작이 필요하다.
 - **D. 바깥 소식** *(중간)*: 프로필 관심사로 하루 한 번 검색해서 가져온다. 음소거도 같이.
 
-### ★ 저장소를 외국 사람이 찾게 (2026-10-23, 문서는 끝, 노출 작업이 남음)
+### ★ 저장소를 외국 사람이 찾게 (2026-10-23, 거의 끝남)
 
-문서·라이선스·이미지는 올렸다. **아직 안 한 것**(GitHub 설정은 바깥에 보이는 변경이라 주인님이 OK 하면 한다):
-- **GitHub 소개와 토픽.** 소개(description)가 한국어고 토픽이 없어서 검색에 안 잡힌다. 제안: 소개 "A self-hosted AI companion: a Discord assistant with memory and mood, a desktop avatar that acts out her emotions, and a Minecraft bot." /
-  토픽 `discord-bot`, `ai-companion`, `virtual-assistant`, `vtuber`, `live2d`, `electron`, `gemini`, `typescript`, `minecraft-bot`, `mineflayer`, `ai-agent`. 소셜 미리보기 이미지(`docs/images/shiro.png` 를 1280×640 으로 가공)도 같이.
-- **실제로 움직이는 데모.** 지금 그림은 정지 그림과 꼬리 GIF 뿐이다. 돌아가는 아바타(표정 전환·고개 돌림·말할 때 입)를 화면 녹화한 GIF/영상이 있으면 첫인상이 크게 달라진다. 이 맥에선 Electron 이 안 돌아 못 만들었다 (아바타가 도는 PC 에서).
-- **코드 안의 한국어 개인 예시.** `persona.ts` 의 예시에 주인님 수업 과목 코드가 들어 있다(공개 코드). 영어화(시로 다국어)를 하게 되면 같이 일반화한다. 시로가 영어로 말하게 하는 건 별개의 큰 작업이다 (README "Language" 참고).
-- 영어 README 의 "Status"·"Safe by default" 문구는 코드와 대조했지만 한 번 더 읽고 과장이 없는지 주인님이 봐 주면 좋다.
+문서·라이선스·이미지를 올렸고, **GitHub 소개와 토픽 10개도 적용했다** (소개는 영어, 토픽: `ai-agent` `ai-companion` `discord-bot` `electron` `gemini` `minecraft-bot` `mineflayer` `typescript` `virtual-assistant` `vtuber`).
+GitHub 가 라이선스를 **MIT 로 인식**한다. 처음엔 `Other` 로 나왔는데, `LICENSE` 의 MIT 본문 뒤에 안내 문단을 붙인 탓이었다 — **`LICENSE` 는 표준 MIT 본문 그대로 두고** 부가 설명은 `NOTICE.md` 에 둔다.
+주인님은 "이 코드는 참고용" 이라고 했다 — 그래서 **소셜 미리보기 이미지는 만들지 않기로 했다** (아래 "남은 것"에서 뺐다).
+
+남은 것 (급하지 않다):
+- **실제로 움직이는 데모.** 지금 그림은 정지 그림과 꼬리 GIF 뿐이다. 돌아가는 아바타(표정 전환·고개 돌림·말할 때 입) 화면 녹화가 있으면 첫인상이 크게 달라진다. 이 맥에선 Electron 이 안 돌아 못 만들었다 (아바타가 도는 PC 에서).
+- **NovelAI 이용 약관.** 그림을 CC BY-NC 로 공개해도 되는지 확인하지 못했다. 공개 전에 주인님이 직접 본다 (안전한 쪽은 저작권 유보).
+- **코드 안의 한국어 개인 예시.** `persona.ts` 의 예시에 주인님 수업 과목 코드가 들어 있다(공개 코드). 시로를 영어로도 말하게 하는 작업(큰 일)을 하게 되면 같이 일반화한다.
+- 저작권 표시 이름은 GitHub 아이디(`smandylee`). 바꾸려면 `LICENSE`·`LICENSE-ASSETS.md`.
 
 ### ★ 공개 저장소에 남은 서버 주소 — 결정이 필요하다
 
@@ -272,7 +275,8 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 - **일반화:** Tailscale IP·키 이름·채널 ID·주인님 전용 사정을 뺐다. 로그인 없이 읽는 곳이라 "주인님"은 "the owner" 로.
 - **솔직하게 적은 것:** 시로는 **한국어로 말한다**(프롬프트·도구 설명이 한국어, 번역할 파일 목록을 README 에 적었다). 개인 프로젝트라 한 줄 설치가 아니다. Windows 에서 개발했고 mac·Linux 는 시험 못 했다.
 - 확인: 영어 문서에 남은 한글은 실제 명령어(`!시로 켜기`, 마크 채팅 명령)뿐이고 그렇다고 밝혔다. 상대 링크·그림 경로 깨진 것 없음. `tsx --env-file` 로 `.env` 읽는 것을 이 맥에서 확인.
-- **못 한 것·남은 것:** 아래 [다음] "★ 저장소를 외국 사람이 찾게".
+- **GitHub 설정**(소개·토픽 10개)은 주인님이 OK 해서 `gh repo edit` 로 적용했다. 라이선스가 `Other` 로 잡혀서 `LICENSE` 를 순수 MIT 로 되돌리고 안내를 `NOTICE.md` 로 옮겼다 (`cb9c9a8`).
+- 남은 것·결정: 아래 [다음] "★ 저장소를 외국 사람이 찾게".
 
 ### 2026-10-19 — 서버 배포: 스스로 궁금해하기 + 음성 생각 끄기 (`bd219a7`)
 
