@@ -31,8 +31,6 @@ what she feels.
 - Talks in DMs (and, if you allow it, in a server). Replies stream in as chat bubbles, a line at a time.
 - Gmail, Google Calendar and Drive notes, a to-do list, deadlines from a Canvas calendar feed,
   web search, and job postings from a small crawler.
-- Runs shell commands through an [OpenClaw](https://docs.openclaw.ai) gateway — **only after you approve the exact
-  command** in chat, and only if you set that up ([how it works](docs/command-execution.md)).
 - Looks at your screen when you ask, and can watch you play a game and comment.
 
 **Memory and personality**
@@ -51,6 +49,10 @@ what she feels.
 - Talk to her through the avatar's microphone; speech is transcribed with Gemini.
 
 **Agency**
+- **Her hands are [OpenClaw](https://docs.openclaw.ai).** Mail, calendar and notes go straight to Google's APIs, but
+  whenever something has to be *done on a computer* — today, running a shell command — she hands the job to an
+  OpenClaw gateway, which runs an agent with real tools and reports back. She proposes the exact command, you read it
+  and say yes in a later message, and only then does it go out. [How it works](docs/command-execution.md).
 - **Minecraft.** A bot plays on a local server by itself: reflexes in plain code (eating, fleeing, kiting,
   sleeping), skills (mining, crafting, tools) and a Gemini planner that picks the next few skills.
 - **She can ask for changes to herself.** She writes a request in words; you approve; Claude Code builds it
@@ -69,6 +71,7 @@ flowchart LR
       O["Orchestrator<br/>TypeScript · Gemini · SQLite · Pinecone"]
     end
 
+    O <-- "approved commands" --> C["OpenClaw gateway<br/>her hands"]
     O <-- "WebSocket bridge<br/>token-authenticated" --> A["Avatar<br/>Electron overlay"]
     O <-- "WebSocket bridge" --> W["Dev worker<br/>Claude Code"]
     O <-- "WebSocket bridge" --> M["Minecraft bot<br/>mineflayer"]
@@ -78,6 +81,8 @@ flowchart LR
 - Every reply starts with an **`[emotion:xxx]` tag** (`neutral · happy · sad · angry · surprised ·
   embarrassed · thinking · love`). The orchestrator parses it and pushes it over the bridge; the avatar
   turns it into a pose. The tag is the whole protocol between her mind and her body.
+- **Mind and hands are separate.** The orchestrator thinks, remembers and talks; anything that has to act on a
+  machine is delegated to OpenClaw, behind an approval the model cannot give itself.
 - The orchestrator is the only thing that talks to Gemini. The PC side (avatar, dev worker, Minecraft bot)
   connects *out* to it over one authenticated WebSocket.
 - **Reflexes live in code, planning lives in the model.** Waiting on a language model to dodge a creeper

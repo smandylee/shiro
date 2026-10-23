@@ -25,9 +25,13 @@ shape. Where something is specific to it, this says so.
 | **Your Discord user id** | Developer Mode on, then right-click yourself → *Copy User ID*. Only this account gets the personal-data tools. |
 | **A Google Cloud project with Vertex AI enabled** | All language-model calls go to Gemini through Vertex AI. |
 
-Optional: a Pinecone account (long-term memory), an ElevenLabs or Typecast account (voice), a Google OAuth client
+Optional (but see the note below for OpenClaw): a Pinecone account (long-term memory), an ElevenLabs or Typecast account (voice), a Google OAuth client
 (Gmail / Calendar / Drive), an [OpenClaw](https://docs.openclaw.ai) gateway (running commands you approve), Claude Code
 (development requests), a Paper server (Minecraft).
+
+**About OpenClaw.** It is optional for running the bot, but it is *how she acts on a computer* — her hands. Without it
+she can talk, remember, read your mail and calendar, and plan, but she cannot run anything. Setting it up is covered
+in [Running commands](command-execution.md).
 
 ## 2. The orchestrator
 

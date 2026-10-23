@@ -284,6 +284,7 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
   (기본 주소 `127.0.0.1:18789` 라서 보통 오케스트레이터와 같은 서버). `docs/command-execution.md` 를 새로 썼다: 승인 흐름(올리기만 하고 실행 안 함 → **같은 턴에서는 `approve_command` 거부** → 다음 메시지로 승인, 10분 만료, 새 제안이 이전 걸 대체, 출력 3000자·120초 제한),
   설정(엔드포인트는 기본 꺼짐: `gateway.http.endpoints.chatCompletions.enabled`, 토큰), 어디서 실행되는지, **솔직한 안전 설명**(토큰은 운영자 전체 권한이라 사설망에만, "그대로 실행"은 AI 에이전트에 대한 부탁일 뿐 보장이 아니라 OpenClaw 권한·샌드박스가 진짜 한계),
   OpenClaw 없이 쓰는 법(`openclaw/client.ts` 의 `runApprovedCommand` 하나만 바꾸면 됨). README·getting-started·`.env.example` 에서 연결했고, `~/.openclaw/secrets/` 는 구글 연동이 OpenClaw 를 필요로 해서가 아니라 기본 경로 이름일 뿐이라고 `docs/google-integration.md` 에 적었다.
+  주인님이 "시로가 일할 땐 OpenClaw 로 일할 텐데" 라고 해서 README 에서 OpenClaw 를 선택 기능 한 줄이 아니라 **시로의 손**(Agency 첫 항목, 구조도의 노드, "마음과 손은 분리돼 있다")으로 올렸다. 코드가 실제로 OpenClaw 에 시키는 건 승인된 셸 명령 하나뿐이라 그 범위만 썼다(메일·일정·노트는 구글 API 직접).
   OpenClaw 공식 문서(`docs.openclaw.ai/gateway/openai-http-api`)로 확인한 내용만 썼다. **서버의 실제 OpenClaw 설정(명령이 서버에서 도는지, 다른 PC 로 이어졌는지)은 내가 모른다** — 주인님이 아는 대로 `docs/command-execution.md` 의 "Where the commands run" 을 확인해 주면 좋다.
 - 남은 것·결정: 아래 [다음] "★ 저장소를 외국 사람이 찾게".
 
