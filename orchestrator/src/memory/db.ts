@@ -7,7 +7,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, "..", "..", "data");
 mkdirSync(dataDir, { recursive: true });
 
-export const db = new Database(join(dataDir, "memory.sqlite"));
+// SHIRO_DB_PATH lets a test or a second instance use a database of its own.
+export const db = new Database(process.env.SHIRO_DB_PATH ?? join(dataDir, "memory.sqlite"));
 db.pragma("journal_mode = WAL");
 
 db.exec(`

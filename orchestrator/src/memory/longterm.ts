@@ -1,5 +1,6 @@
 import { Pinecone } from "@pinecone-database/pinecone";
 import { embedText, EMBEDDING_DIMENSION } from "./embeddings.js";
+import { addMemory, loadMemories, searchMemories } from "./localstore.js";
 
 const INDEX_NAME = "shiro-memory";
 const apiKey = process.env.PINECONE_API_KEY;
@@ -7,9 +8,28 @@ const apiKey = process.env.PINECONE_API_KEY;
 let ready: Promise<void> | null = null;
 const pinecone = apiKey ? new Pinecone({ apiKey }) : null;
 
-if (!apiKey) {
-  console.warn("[memory] PINECONE_API_KEY not set — long-term memory disabled.");
+/**
+ * Where long-term memory lives, set with SHIRO_MEMORY_STORE:
+ *   pinecone    Pinecone only. What an install that predates the local store does.
+ *   local       Her own database is read and written; Pinecone, if there is a key, is also written to,
+ *               so switching back loses nothing while there is any doubt.
+ *   local-only  Her own database only. Needs no account anywhere.
+ * Unset: an install with a Pinecone key keeps using it, and one without gets the local store
+ * (it used to have no long-term memory at all).
+ */
+export type StoreMode = "pinecone" | "local" | "local-only";
+export function storeMode(): StoreMode {
+  const raw = (process.env.SHIRO_MEMORY_STORE ?? "").trim().toLowerCase();
+  if (raw === "pinecone" || raw === "local" || raw === "local-only") return raw;
+  return apiKey ? "pinecone" : "local-only";
 }
+
+if (storeMode() === "pinecone" && !apiKey) {
+  console.warn("[memory] SHIRO_MEMORY_STORE=pinecone but PINECONE_API_KEY is not set — long-term memory disabled.");
+}
+
+// What a search must score to count as the same subject: the same floor as when Pinecone did it.
+const SIMILARITY_THRESHOLD = 0.65;
 
 // The index handle is made once, with its address. Asking the SDK for
 // `pinecone.index(name)` on every call makes it look the address up again
@@ -49,29 +69,35 @@ function memoryIndex() {
  * and both network paths — so the first reply after a restart isn't the slow one.
  */
 export async function warmMemory(): Promise<void> {
-  if (!pinecone) return;
+  const mode = storeMode();
+  if (mode === "pinecone" && !pinecone) return;
   try {
-    await ensureIndex();
     const vector = await embedText("워밍업", "RETRIEVAL_QUERY");
-    await memoryIndex().query({ vector, topK: 1 });
-    console.log("[memory] warmed up");
+    if (mode === "pinecone") {
+      await ensureIndex();
+      await memoryIndex().query({ vector, topK: 1 });
+      console.log("[memory] warmed up (pinecone)");
+      return;
+    }
+    const count = loadMemories();
+    if (mode === "local" && pinecone) await ensureIndex(); // the mirror's address, looked up now instead of on the first write
+    console.log(`[memory] warmed up (${mode}: ${count} memories in her own database${mode === "local" && pinecone ? ", mirrored to pinecone" : ""})`);
   } catch (err) {
     console.error("[memory] warm-up failed:", err);
   }
 }
 
-// Long-term memory is a single shared pool across everyone Shiro talks to
-// (not scoped per Discord channel), so general conversation carries over
-// between the owner and guests. Each entry is tagged with who said it so
-// recall results stay clearly attributed and don't get people confused.
+/**
+ * Stores one exchange so it can be found by meaning later.
+ */
 export async function remember(
   speakerName: string,
   userText: string,
   assistantText: string
 ): Promise<void> {
-  if (!pinecone) return;
+  const mode = storeMode();
+  if (mode === "pinecone" && !pinecone) return;
   try {
-    await ensureIndex();
     // Embed the whole exchange, not just the user's line — questions like
     // "뭐 추천해줬어?" are answered by what Shiro said, so the reply has to be
     // part of what gets matched.
@@ -80,20 +106,22 @@ export async function remember(
       "RETRIEVAL_DOCUMENT"
     );
     const id = `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    await memoryIndex().upsert({
-      records: [
-        {
-          id,
-          values: vector,
-          metadata: {
-            speakerName,
-            userText,
-            assistantText,
-            createdAt: Date.now(),
-          },
-        },
-      ],
-    });
+    const createdAt = Date.now();
+
+    if (mode !== "pinecone") addMemory({ id, speaker: speakerName, userText, assistantText, createdAt, vector });
+
+    if (mode !== "local-only" && pinecone) {
+      try {
+        await ensureIndex();
+        await memoryIndex().upsert({
+          records: [{ id, values: vector, metadata: { speakerName, userText, assistantText, createdAt } }],
+        });
+      } catch (err) {
+        // With Pinecone as the only store a failure is a failure; as a mirror it must not lose what is already safe.
+        if (mode === "pinecone") throw err;
+        console.error("[memory] mirroring to pinecone failed (the memory itself is saved):", err);
+      }
+    }
   } catch (err) {
     console.error("[memory] remember failed:", err);
   }
@@ -112,24 +140,34 @@ function formatWhen(createdAt: unknown): string {
   });
 }
 
+function formatMemory(createdAt: unknown, speaker: unknown, userText: unknown, assistantText: unknown): string {
+  return `- ${formatWhen(createdAt)} ${speaker}: ${userText}\n  시로: ${assistantText}`;
+}
+
 export async function recall(queryText: string, topK = 5): Promise<string[]> {
-  if (!pinecone) return [];
+  const mode = storeMode();
+  if (mode === "pinecone" && !pinecone) return [];
   try {
-    await ensureIndex();
     const vector = await embedText(queryText, "RETRIEVAL_QUERY");
+
+    if (mode !== "pinecone") {
+      return searchMemories(vector, topK, SIMILARITY_THRESHOLD).map(({ memory }) =>
+        formatMemory(memory.createdAt, memory.speaker, memory.userText, memory.assistantText)
+      );
+    }
+
+    await ensureIndex();
     const result = await memoryIndex().query({
       vector,
       topK,
       includeMetadata: true,
     });
 
-    const SIMILARITY_THRESHOLD = 0.65;
     return (result.matches ?? [])
       .filter((match) => (match.score ?? 0) >= SIMILARITY_THRESHOLD)
       .map((match) => {
         const meta = match.metadata as Record<string, unknown>;
-        const when = formatWhen(meta.createdAt);
-        return `- ${when} ${meta.speakerName}: ${meta.userText}\n  시로: ${meta.assistantText}`;
+        return formatMemory(meta.createdAt, meta.speakerName, meta.userText, meta.assistantText);
       });
   } catch (err) {
     console.error("[memory] recall failed:", err);
