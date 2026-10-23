@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { Pinecone } from "@pinecone-database/pinecone";
 import { db } from "./db.js";
-import { embedText } from "./embeddings.js";
 import { addMemory, memoryCount, searchMemories } from "./localstore.js";
 
 // Moving long-term memory from Pinecone into her own database, and checking that nothing changed.
@@ -72,11 +71,17 @@ function sampleQueries(n: number): string[] {
 }
 
 async function compare(n: number): Promise<void> {
+  // Only a comparison needs the embedding model (and its credentials); an import must not.
+  const { embedText } = await import("./embeddings.js");
   const index = await pineconeIndex();
   const queries = sampleQueries(n);
   let sameOrder = 0;
   let sameSet = 0;
   let withHits = 0;
+  let top1Same = 0;
+  const topDiffs: string[] = [];
+  let setDiffs = 0;
+  let setDiffsAtTheEdge = 0;
   let maxDiff = 0;
   const differences: string[] = [];
 
@@ -88,10 +93,20 @@ async function compare(n: number): Promise<void> {
     const local = searchMemories(vector, TOP_K, THRESHOLD).map((f) => ({ id: f.memory.id, score: f.score }));
 
     if (remote.length > 0 || local.length > 0) withHits++;
+    if (remote[0]?.id === local[0]?.id) top1Same++;
+    else topDiffs.push(`  best match differs for "${q.slice(0, 40)}": pinecone ${remote[0]?.score.toFixed(4) ?? "-"} vs local ${local[0]?.score.toFixed(4) ?? "-"} (the other side scores ${local.find((x) => x.id === remote[0]?.id)?.score.toFixed(4) ?? "-"} / ${remote.find((x) => x.id === local[0]?.id)?.score.toFixed(4) ?? "-"} for the rival)`);
     const a = remote.map((x) => x.id).join(",");
     const b = local.map((x) => x.id).join(",");
     if (a === b) sameOrder++;
     if ([...remote.map((x) => x.id)].sort().join(",") === [...local.map((x) => x.id)].sort().join(",")) sameSet++;
+    else {
+      // Pinecone's scores are approximate (a few thousandths off), so what it ranks last can swap with a
+      // near-tie. A set that differs only in items scoring within that margin of the cut is that, not a miss.
+      setDiffs++;
+      const cut = Math.min(remote[remote.length - 1]?.score ?? 1, local[local.length - 1]?.score ?? 1);
+      const odd = [...remote.filter((r) => !local.some((l) => l.id === r.id)), ...local.filter((l) => !remote.some((r) => r.id === l.id))];
+      if (odd.every((o) => Math.abs(o.score - cut) <= 0.003)) setDiffsAtTheEdge++;
+    }
     for (const r of remote) {
       const l = local.find((x) => x.id === r.id);
       if (l) maxDiff = Math.max(maxDiff, Math.abs(l.score - r.score));
@@ -99,7 +114,10 @@ async function compare(n: number): Promise<void> {
     if (a !== b) differences.push(`  "${q.slice(0, 40)}"\n    pinecone: ${remote.map((x) => x.score.toFixed(3)).join(" ") || "-"}\n    local:    ${local.map((x) => x.score.toFixed(3)).join(" ") || "-"}`);
   }
 
-  console.log(`${queries.length} questions (${withHits} found something): same memories in the same order ${sameOrder}, same memories ${sameSet} | largest score difference ${maxDiff.toExponential(2)}`);
+  console.log(`${queries.length} questions (${withHits} found something)`);
+  console.log(`  best match the same: ${top1Same}/${queries.length} | same memories in the same order: ${sameOrder} | same memories: ${sameSet}`);
+  console.log(`  sets that differ: ${setDiffs}, of which only a near-tie at the cut-off: ${setDiffsAtTheEdge} | largest score difference ${maxDiff.toExponential(2)}`);
+  if (topDiffs.length > 0) console.log(topDiffs.join("\n"));
   if (differences.length > 0) console.log(`differences:\n${differences.slice(0, 6).join("\n")}`);
 }
 

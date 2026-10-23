@@ -40,7 +40,7 @@ orchestrator/   TS, ESM, tsx로 실행. VM(홍콩 Lightsail)에서 systemd로 24
   src/wonder.ts       대화와 무관하게 스스로 궁금해하기 (목록이 비면 소재를 만든다)
   src/proactive.ts    아침 브리핑·할 일 알림, 새벽 학습(프로필·기분)을 부르는 틱
   src/voice.ts        음성 받아쓰기 (Gemini)
-  src/memory/         SQLite(단기·설정·연락처·할일·사용량·프로필·기분·궁금증) + Pinecone(장기)
+  src/memory/         SQLite(단기·설정·연락처·할일·사용량·프로필·기분·궁금증) + 장기기억(벡터도 SQLite, `SHIRO_MEMORY_STORE`; Pinecone은 선택·미러)
     mood.ts           기분과 "남은 마음" (계산·문구는 mood-core.ts, 새벽 회고는 mood-learn.ts)
   src/browser.ts      브라우저 도구: 요청 검증, 결과 정제, 같은 턴 승인 거부
   src/avatar/bridge.ts  WebSocket 서버(:18790), 토큰 인증, 클라이언트 역할(avatar/dev/minecraft)
@@ -100,6 +100,10 @@ orchestrator 로직은 모델·DB를 가짜로 바꿔 단위로 시험하고, �
   의 `runApprovedCommand` 하나뿐이다(가드레일 파일). 메일·일정·노트는 OpenClaw 를 거치지 않고 구글 API 를 직접 부른다.
 - **`ownerTools` 의 도구 선언을 바꾸면 올리기 전에 서버에서 실제 모델에 보내 스키마가 받아들여지는지 확인한다.** 도구 목록은 매 턴 같이 가서, 거부되면 **모든 대화가 실패**한다
   (서버의 `/etc/shiro.env` 를 읽어 `@google/genai` 로 선언 하나만 보내 보는 짧은 스크립트로 된다).
+- **장기기억은 서버 자신의 SQLite에 있다** (`memory/localstore.ts`, 벡터는 BLOB, 전부 RAM에 올려 내적으로 비교).
+  `SHIRO_MEMORY_STORE`: `pinecone` / `local`(로컬을 읽고 쓰며 Pinecone에도 미러) / `local-only`. 서버는 `local`.
+  되돌리기는 `/etc/shiro.env`의 값을 `pinecone`으로 바꾸고 재시작. 벡터 모델(768차원)을 바꾸면 기존 기억과
+  비교가 안 되니 다시 임베딩해야 한다. DB에 쓰는 스크립트는 **`ubuntu`로** 돌린다 (root로 돌리면 파일 소유가 바뀐다).
 - **응답이 갑자기 몇 분씩 느려지면 서비스부터 재시작한다.** 서버·네트워크·모델은 정상이고
   돌던 프로세스만 느린 일이 있었다 (WORKLOG 10/19).
 - **이 맥북(macOS 13.0)에서는 `better-sqlite3`가 단독으로도 segfault**라서 orchestrator를

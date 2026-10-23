@@ -25,7 +25,7 @@ shape. Where something is specific to it, this says so.
 | **Your Discord user id** | Developer Mode on, then right-click yourself → *Copy User ID*. Only this account gets the personal-data tools. |
 | **A Google Cloud project with Vertex AI enabled** | All language-model calls go to Gemini through Vertex AI. |
 
-Optional (but see the note below for OpenClaw): a Pinecone account (long-term memory), an ElevenLabs or Typecast account (voice), a Google OAuth client
+Optional (but see the note below for OpenClaw): an ElevenLabs or Typecast account (voice), a Google OAuth client
 (Gmail / Calendar / Drive), an [OpenClaw](https://docs.openclaw.ai) gateway (running commands you approve), Claude Code
 (development requests), a Paper server (Minecraft).
 
@@ -59,8 +59,11 @@ npx tsx --env-file=.env src/index.ts      # or: npm start, with the variables al
 You should see `logged in as <bot name>`. Send the bot a direct message.
 
 State lives in `orchestrator/data/memory.sqlite` (created on first run, git-ignored): recent turns, settings,
-your to-do list, the learned profile, her mood. Long-term memory is in Pinecone if you set `PINECONE_API_KEY`;
-the index `shiro-memory` (768 dimensions, cosine, serverless) is created for you.
+your to-do list, the learned profile, her mood, and her long-term memory (the embedding of each exchange, compared
+in memory; hundreds of memories take well under a millisecond). It needs no account. Pinecone is optional: set
+`SHIRO_MEMORY_STORE` (`pinecone`, `local`, `local-only`; see `.env.example`). Without a `PINECONE_API_KEY` she uses
+`local-only`. With one and nothing else set, an existing install keeps using Pinecone. To move one over, export the
+index and run `npm run memory:migrate -- import <file>`, then `-- compare` to check that both find the same things.
 
 ### What happens when something is not configured
 

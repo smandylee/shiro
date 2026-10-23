@@ -32,6 +32,8 @@
   - **시로 전용 브라우저** (10/23 코드 완료·시험 통과, **서버에는 올림, PC 는 아직 — 쓰려면 PC 에서 `git pull`·재시작하고 `config.json` 에서 켜야 한다**) — 아바타 앱이 Electron 의 Chromium 으로 자기 창을 갖고, 시로의 `browser` 도구(주인 전용)가
     페이지 열기·읽기(번호 붙은 링크/버튼)·클릭·입력·스크롤·스크린샷을 한다. 로그인은 주인님이 직접(`Ctrl+Alt+B`), 허용 사이트(`browserSites`)만, 비밀번호/인증번호/카드 칸에는 입력 안 함,
     제출·삭제·결제·로그아웃은 캡처와 함께 멈추고 **다음 메시지**에서 승인. 자세한 건 `docs/browser.md`, [기록] 10/23.
+  - **장기기억이 서버 자기 DB로 옮겨졌다** (10/23 서버 반영) — Pinecone 389건을 벡터째 그대로 가져와 `long_memories` 에 넣고(재임베딩 없음, 글도 그대로),
+    `SHIRO_MEMORY_STORE=local` 로 읽기·쓰기는 로컬, Pinecone 에는 계속 미러. 회상 중앙값 436ms (Pinecone 일 땐 같은 방식으로 약 860ms). 되돌리기는 [기록] 10/23 참고.
   - **개발 요청** — 시로가 말로 요청 → 주인님 승인 → PC의 Claude Code가 격리된 worktree에서 작업.
     판정이 완료/반려/**넘김**(권한 밖이라 주인님이 직접) 셋으로 온다.
   - **배포** — 결과가 마음에 들면 "배포해" 한 마디로 서버에 올라간다.
@@ -279,6 +281,18 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 ## 기록
 
 최신이 위.
+
+### 2026-10-23 — 장기기억을 Pinecone 에서 서버 자기 DB 로
+
+주인님이 "진행하자"로 승인한 A안: **벡터 저장소만** 옮긴다. 글은 그대로, 벡터도 같은 Vertex 768차원 그대로(재임베딩·압축·요약 없음).
+- **코드**: `memory/vector-math.ts`(정규화·내적·상위 k), `memory/localstore.ts`(`long_memories` 표, 시작 때 전부 RAM 으로), `memory/longterm.ts`(모드 분기, 인터페이스 그대로), `memory/migrate.ts`(`import`/`compare`/`status`, `npm run memory:migrate`). `SHIRO_DB_PATH` 로 DB 위치를 바꿀 수 있다(시험용).
+- **백업(서버 `~/backups/`)**: `memory-2026-10-23-06-43-13.sqlite`(+ -shm/-wal 찌꺼기), `pinecone-shiro-memory-2026-10-23-06-43-33.json`. **같은 디스크라서 밖으로 빼는 백업은 아직 없다.**
+- **검증**: 기억 389건 가져옴. 실제 말 + 고정 질문 79개를 양쪽에 물어 비교 — 최상위 기억은 77/79 같고, 나머지는 점수 0.0003 차이의 동점 근처(Pinecone 점수가 근사값이라 생김). 점수 최대 차이 ~0.003 이내.
+- **전환**: 서버 `src` 교체(이전 `src.prev-20261023-145303`, `package.json.prev-…`), `/etc/shiro.env` 에 `SHIRO_MEMORY_STORE=local` 한 줄(백업 `/etc/shiro.env.bak-20261023-145303`). 기동 로그 `[memory] warmed up (local: 389 memories …, mirrored to pinecone)`.
+- **측정**: 회상 10번 368–564ms, 중앙값 436ms ≈ 임베딩 호출 하나(0.42초) 값. 운영 로그의 예전 값은 1.5초 안팎.
+- **되돌리기**: `/etc/shiro.env` 의 값을 `pinecone` 으로(또는 `.bak-…` 복원) 하고 `sudo systemctl restart shiro-orchestrator`. Pinecone 에도 계속 쓰고 있어서 잃는 건 없다.
+- **서버에 남은 것**: 위 백업들, 쌓인 `src.prev-*`(주인님이 정리). 임시 시험 파일은 지웠다.
+- **다음 후보**: Pinecone 미러 끄기(`local-only`), 음성에서도 자동 회상 켜기(이제 빠르다), 로컬 임베딩(B안), 짧은 인사말은 저장 안 하기.
 
 ### 2026-10-23 — 시로 전용 브라우저, 그리고 화면 캡처가 실패하던 버그
 

@@ -34,7 +34,7 @@ what she feels.
 - Looks at your screen when you ask, and can watch you play a game and comment.
 
 **Memory and personality**
-- Short-term memory in SQLite, long-term memory in Pinecone (optional) with multilingual embeddings.
+- Short-term memory in SQLite, long-term memory in her own database as multilingual embeddings (Pinecone is optional).
 - Learns facts about you from conversation every night; every rewrite is snapshotted and reversible.
 - Has a **mood** that moves during a conversation and fades over hours, and a one-line "leftover feeling"
   carried into the next day.
@@ -71,7 +71,7 @@ flowchart LR
     Discord <--> O
 
     subgraph VM["Server (always on)"]
-      O["Orchestrator<br/>TypeScript · Gemini · SQLite · Pinecone"]
+      O["Orchestrator<br/>TypeScript · Gemini · SQLite"]
     end
 
     O <-- "approved commands" --> C["OpenClaw gateway<br/>her hands"]
