@@ -177,7 +177,7 @@ mouth, vowel-accurate lip-sync, and the Minecraft planner surviving a full night
 
 ## License
 
-- **Code:** [MIT](LICENSE).
+- **Code:** [MIT](LICENSE) (third-party notices in [NOTICE.md](NOTICE.md)).
 - **Artwork** (the character, its layers and anything derived from them): **CC BY-NC 4.0** — credit the author,
   no commercial use. See [LICENSE-ASSETS.md](LICENSE-ASSETS.md). Replace it with your own character and the code
   is yours under MIT.

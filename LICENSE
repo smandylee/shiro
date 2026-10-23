@@ -19,12 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This license covers the source code. It does NOT cover the character artwork,
-which is under separate terms: see LICENSE-ASSETS.md.
-
-Third-party code keeps its own license:
-  - avatar/mesh/        mesh-avatar-studio, MIT (see avatar/mesh/LICENSE-mesh-avatar-studio)
-  - npm / pip packages  see each package's own license
