@@ -10,7 +10,7 @@ what she feels.
 <p align="center">
   <img src="docs/images/shiro.png" alt="Shiro, the avatar" width="360">
   &nbsp;&nbsp;
-  <img src="docs/images/tail-sway.gif" alt="Her tail bends as a wave travels along it" width="300">
+  <img src="docs/images/tail-sway.gif" alt="Offline preview of the tail bending: only the tail moves" width="300">
 </p>
 
 > **Heads-up before you clone**
