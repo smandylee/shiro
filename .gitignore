@@ -22,3 +22,6 @@ avatar/layers/_*.png
 .idea/
 .DS_Store
 Thumbs.db
+
+# Persona block kept off GitHub: lives on the PC and the server only (gemini.ts loads it if present)
+orchestrator/src/llm/intimacy.ts

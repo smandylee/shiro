@@ -13,7 +13,6 @@ import {
 import { recordUsage, estimateKrw, formatUsage, type UsageCounts } from "../memory/usage.js";
 import { ai } from "./client.js";
 import { SYSTEM_PROMPT } from "../persona.js";
-import { OWNER_INTIMACY } from "./intimacy.js";
 import { runApprovedCommand } from "../openclaw/client.js";
 import { proposeCommand, getPendingCommand, markCommand, cancelPending } from "../pc/commands.js";
 import { listUnreadEmails, searchEmails, readEmail } from "../google/gmail.js";
@@ -61,6 +60,14 @@ import { moodBlock } from "../memory/mood.js";
 import { canvasEnabled, describeItem, listUpcomingCanvas, markCanvasDone } from "../canvas/feed.js";
 
 const MODEL = "gemini-3.8-flash";
+
+// llm/intimacy.ts is kept out of git (gitignored; it lives on the PC and the server only),
+// so it is loaded here at start-up and may be missing: the specifier is a variable so tsc
+// does not require the file, and a missing or broken file just means no extra block.
+const INTIMACY_MODULE = "./intimacy.js";
+const OWNER_INTIMACY: string = await import(INTIMACY_MODULE)
+  .then((m: { OWNER_INTIMACY?: unknown }) => String(m.OWNER_INTIMACY ?? ""))
+  .catch(() => "");
 
 // Gemini's own content filters, turned all the way down for the owner's own chat only.
 // Guests and server chat (guildchat.ts and the rest) keep the model defaults. Only the
