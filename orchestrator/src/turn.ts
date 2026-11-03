@@ -251,7 +251,7 @@ export async function runTurn(input: TurnInput): Promise<void> {
       // Nothing of this exchange is stored: the history and her memory are written
       // below, only after an answer that was actually given.
       console.log("  -> the model withheld its answer; this exchange is not kept");
-      await channel.send("(그 얘긴 내가 입 밖에 내기 좀 그러네... 다른 얘기 하자)");
+      await channel.send("(검열때문에 안될거같아)");
     } else {
       await channel.send("(어... 지금 머리가 잘 안 돌아가네. 잠깐 후에 다시 말 걸어줄래?)");
     }
