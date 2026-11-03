@@ -12,7 +12,7 @@ import { MAX_NOTE_LENGTH } from "./mood-core.js";
 // hours, so a number set at 4am would be gone before the owner wakes up. It reads
 // the conversation only; it sends nothing.
 
-const MODEL = "gemini-3.7-flash";
+const MODEL = "gemini-3.8-flash";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 const REFLECT_HOUR = Number(process.env.SHIRO_MOOD_HOUR ?? 4);
 // A couple of "안녕"s leave nothing to carry over.

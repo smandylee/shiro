@@ -1,7 +1,7 @@
 import { ai } from "../llm/client.js";
 import { recordUsage } from "../memory/usage.js";
 
-const MODEL = "gemini-3.7-flash";
+const MODEL = "gemini-3.8-flash";
 const MAX_RESULT_CHARS = 4000;
 
 // Google Search / URL grounding only works as a tool of a model call, so the

@@ -57,7 +57,7 @@ import {
 import { moodBlock } from "../memory/mood.js";
 import { canvasEnabled, describeItem, listUpcomingCanvas, markCanvasDone } from "../canvas/feed.js";
 
-const MODEL = "gemini-3.7-flash";
+const MODEL = "gemini-3.8-flash";
 
 export type ChatTurn = { role: "user" | "model"; text: string };
 // Inline binary sent alongside the message — images and PDFs alike.
