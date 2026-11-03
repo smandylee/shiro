@@ -34,10 +34,11 @@ import { maybeWonder } from "./wonder.js";
 // still knows little about the owner, what she'd like to know), with when it can
 // be asked: not before the thing has happened, not once it has gone stale. Later,
 // as soon as the owner has been away from the chat for a while, she asks the
-// freshest one that can be asked. Whether now is a good moment is not weighed:
-// the owner said any time is fine — busy, at night, during a class — they will
-// answer when they can. There is no daily limit, and they can silence her with
-// mute_chatter.
+// freshest one that can be asked. Busy, at night, during a class — the owner
+// said any time is fine, they will answer when they can. The one thing she does
+// read is the mood: if the owner seemed upset or worn down, she holds the
+// question for a while instead of chirping. There is no daily limit, and they
+// can silence her with mute_chatter.
 
 const MODEL = "gemini-3.7-flash";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
@@ -50,6 +51,9 @@ const OWNER_IDLE_MS = Number(process.env.SHIRO_CHATTER_IDLE_MIN ?? 30) * 60 * 10
 const SHORT_PROFILE = 15;
 const MIN_USER_TURNS_TO_READ = 2;
 const HISTORY_TURNS = 20;
+// After deciding the mood is wrong for a question, how long before she looks again — unless
+// someone speaks first, which changes the mood and ends the hold.
+const MOOD_HOLD_MS = Number(process.env.SHIRO_CHATTER_MOOD_HOLD_MIN ?? 120) * 60 * 1000;
 
 const SYSTEM_NOTES = /^\((시로가|게임을 구경)/;
 
@@ -93,6 +97,8 @@ export async function maybeChat(now: Date, channelId: string, channel: SendableC
   // A question she asked on her own is still unanswered: don't pile another on
   // top, however long ago it was. It stays quiet until the owner writes again.
   if (hasUnansweredQuestion(channelId)) return;
+  // She chose to hold off because of the mood, and nothing has been said since.
+  if (now.getTime() < Number(getSetting("chatterHeldUntil") ?? 0) && last?.at === Number(getSetting("chatterHeldAtTurn") ?? -1)) return;
 
   let askable = askableCuriosities(now.getTime());
   if (askable.length === 0) {
@@ -106,6 +112,11 @@ export async function maybeChat(now: Date, channelId: string, channel: SendableC
   const pick = askable[0];
   const result = await compose(now, channelId, pick, last?.at ?? null);
   if (result === null) return; // the model failed: the next tick tries again
+  if (result === "hold") {
+    setSetting("chatterHeldUntil", String(now.getTime() + MOOD_HOLD_MS));
+    setSetting("chatterHeldAtTurn", String(last?.at ?? -1));
+    return;
+  }
   if (result === "drop") {
     markDropped(pick.id);
     console.log(`[chatter] dropped (no longer makes sense): ${pick.text}`);
@@ -226,12 +237,12 @@ async function noteCuriosities(now: Date, channelId: string): Promise<void> {
 /* ---------- later: putting the question into words ---------- */
 
 /**
- * Her words for one question, or "drop" when it no longer makes sense to ask (the recent
- * conversation already answered it, or what it asks about did not happen), or null when the
- * model could not be reached. Whether now is a good moment is not asked: the owner said any
- * time is fine.
+ * Her words for one question; "hold" when the owner's mood is wrong for it (upset, angry, worn
+ * down — not merely busy); "drop" when it no longer makes sense to ask (the recent conversation
+ * already answered it, or what it asks about did not happen); null when the model could not be
+ * reached. One call either way, so reading the mood costs nothing extra.
  */
-async function compose(now: Date, channelId: string, pick: Curiosity, lastAt: number | null): Promise<string | "drop" | null> {
+async function compose(now: Date, channelId: string, pick: Curiosity, lastAt: number | null): Promise<string | "hold" | "drop" | null> {
   const history = getRecentTurnsWithTime(channelId, HISTORY_TURNS)
     .map((t) => `(${when(t.at)}) ${t.role === "user" ? "주인님" : "시로"}: ${t.text}`)
     .join("\n");
@@ -246,12 +257,17 @@ async function compose(now: Date, channelId: string, pick: Curiosity, lastAt: nu
   const away = lastAt === null ? "처음" : `${Math.round((now.getTime() - lastAt) / 60000)}분`;
   const prompt =
     `[혼자 있는 시간] 지금은 ${when(now.getTime())}야 (홍콩 시간). 주인님이 시로와 대화를 안 한 지 ${away} 됐어.\n` +
-    `시로가 주인님에게 물어보고 싶었던 게 있어. 지금 물어봐.\n\n` +
+    `시로가 주인님에게 물어보고 싶었던 게 있어.\n\n` +
     `[물어보고 싶은 것] ${pick.text} (${when(pick.created_at, false)}에 궁금해짐)\n\n` +
     `- message 는 시로의 말투로, 1~2줄, 대답하기 쉬운 질문으로. 맨 앞에 [emotion:happy] 같은 감정 태그를 붙인다.\n` +
-    `- 시각은 말투를 맞출 때만 본다 (아침엔 아침 인사, 밤엔 밤 인사). 주인님이 바쁘거나 밤이어도 괜찮다고 직접 말했으니 참지 않는다.\n` +
-    `- 주인님이 하지 않은 말을 지어내지 않는다. 할 일이나 마감 챙기기는 하지 않는다.\n` +
-    `- 아래 최근 대화나 기억에 이미 답이 나왔거나, 물어보려던 일이 일어나지 않은 게 분명하면 묻지 말고 stale 을 true 로 한다. 그 외에는 false.\n\n` +
+    `decision 을 하나 고른다:\n` +
+    `- "stale": 아래 최근 대화나 기억에 이미 답이 나왔거나, 물어보려던 일이 일어나지 않은 게 분명하다.\n` +
+    `- "hold": 마지막 대화에서 주인님이 속상하거나, 화나거나, 크게 지치거나 힘들어 보였다 (나쁜 일, 다툼, 큰 스트레스). ` +
+    `그런 분위기에 엉뚱한 질문을 던지지 않는다. 바쁜 것, 수업·일정 중인 것, 밤인 것은 해당하지 않는다 — 주인님이 그럴 때도 물어봐도 된다고 직접 말했다.\n` +
+    `- "ask": 그 외. 지금 물어본다.\n` +
+    `ask 일 때 message 는 시로의 말투로, 1~2줄, 대답하기 쉬운 질문으로. 맨 앞에 [emotion:happy] 같은 감정 태그를 붙인다. ` +
+    `시각은 말투를 맞출 때만 본다 (아침엔 아침 인사, 밤엔 밤 인사). 주인님이 하지 않은 말을 지어내지 않는다. 할 일이나 마감 챙기기는 하지 않는다.\n` +
+    `reason 에는 왜 그렇게 골랐는지 한 줄.\n\n` +
     (renderProfile() ? `[주인님에 대해 알고 있는 것]\n${renderProfile()}\n\n` : "") +
     (memories.length > 0 ? `[예전 기억 — 주인님에 관한 것만 참고]\n${memories.join("\n")}\n\n` : "") +
     `[최근 대화]\n${history || "(없음)"}`;
@@ -271,21 +287,26 @@ async function compose(now: Date, channelId: string, pick: Curiosity, lastAt: nu
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            stale: { type: Type.BOOLEAN },
+            decision: { type: Type.STRING, enum: ["ask", "hold", "stale"] },
             message: { type: Type.STRING },
-            // One short line on why it was dropped, for the log.
+            // One short line on why, for the log.
             reason: { type: Type.STRING },
           },
-          required: ["stale"],
+          required: ["decision", "reason"],
         },
       },
     });
     track("chatter", res.usageMetadata);
 
-    const parsed = JSON.parse(res.text ?? "") as { stale?: boolean; message?: string; reason?: string };
-    if (parsed.stale === true) {
-      console.log(`[chatter] stale: ${String(parsed.reason ?? "").slice(0, 140)}`);
+    const parsed = JSON.parse(res.text ?? "") as { decision?: string; message?: string; reason?: string };
+    const reason = String(parsed.reason ?? "").slice(0, 140);
+    if (parsed.decision === "stale") {
+      console.log(`[chatter] stale: ${reason}`);
       return "drop";
+    }
+    if (parsed.decision === "hold") {
+      console.log(`[chatter] holding off for the mood: ${reason}`);
+      return "hold";
     }
     if (typeof parsed.message !== "string" || !parsed.message.trim()) return null;
     return parsed.message.trim();
