@@ -5,6 +5,8 @@ import {
   type GenerateContentResponseUsageMetadata,
   type Part,
   type Tool,
+  HarmBlockThreshold,
+  HarmCategory,
   Type,
   createFunctionResponsePartFromBase64,
 } from "@google/genai";
@@ -58,6 +60,17 @@ import { moodBlock } from "../memory/mood.js";
 import { canvasEnabled, describeItem, listUpcomingCanvas, markCanvasDone } from "../canvas/feed.js";
 
 const MODEL = "gemini-3.8-flash";
+
+// Gemini's own content filters, turned all the way down for the owner's own chat only.
+// Guests and server chat (guildchat.ts and the rest) keep the model defaults. Only the
+// four categories the API lets a developer adjust can be changed; what Google blocks
+// regardless, and the model's own refusals, are untouched by this.
+const OWNER_SAFETY = [
+  HarmCategory.HARM_CATEGORY_HARASSMENT,
+  HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+  HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+  HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+].map((category) => ({ category, threshold: HarmBlockThreshold.OFF }));
 
 export type ChatTurn = { role: "user" | "model"; text: string };
 // Inline binary sent alongside the message — images and PDFs alike.
@@ -1054,7 +1067,8 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
   // once, "did I really call it?") is where deliberating earns its keep, and what is
   // risky by voice is already confirmed first (see the viaVoice note above).
   const thinking = opts.viaVoice ? { thinkingConfig: { thinkingBudget: 0 } } : {};
-  const config = { systemInstruction, tools, ...thinking };
+  const safety = isOwner ? { safetySettings: OWNER_SAFETY } : {};
+  const config = { systemInstruction, tools, ...thinking, ...safety };
 
   // Usage is summed across every round, since the cost of one Discord message
   // is the whole loop, not the last call.
@@ -1199,7 +1213,7 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
     }
 
     // Withhold the tools so the model has to reply in words instead of looping.
-    response = await generateRound(contents, { systemInstruction, ...thinking }, emitter());
+    response = await generateRound(contents, { systemInstruction, ...thinking, ...safety }, emitter());
     tally(response);
   }
 
