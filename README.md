@@ -38,8 +38,9 @@ what she feels.
 - Learns facts about you from conversation every night; every rewrite is snapshotted and reversible.
 - Has a **mood** that moves during a conversation and fades over hours, and a one-line "leftover feeling"
   carried into the next day.
-- **Has her own curiosity.** When it has been quiet and she has nothing to follow up on, she comes up with
-  something she would like to know about you and asks — never while you are mid-conversation, never twice
+- **Has her own curiosity.** After a conversation she notes what she wants to follow up on, with when it can be
+  asked: how the exam went waits until the exam is over, and a question past its moment is dropped. When it has
+  been quiet and she has nothing to follow up on, she comes up with something she would like to know about you and asks — never while you are mid-conversation, never twice
   in a row without an answer, and you can silence her.
 
 **A body**
