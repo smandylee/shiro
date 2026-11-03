@@ -1,5 +1,6 @@
 import { chat, EmptyReplyError, type MediaPart } from "./llm/gemini.js";
 import { parseEmotionTag } from "./persona.js";
+import { looksLikeRefusal } from "./refusal.js";
 import { StreamedReply } from "./reply.js";
 import { addTurn, getRecentHistory } from "./memory/shortterm.js";
 import { remember, recall } from "./memory/longterm.js";
@@ -285,6 +286,13 @@ export async function runTurn(input: TurnInput): Promise<void> {
   const { emotion, text } = parseEmotionTag(raw);
   console.log(`  -> emotion=${emotion} text=${text}`);
   if (isOwner) noteOwnerTurn(emotion);
+
+  // The model's own refusal has already been shown, but it stays out of the history and her
+  // memory: seen again as context, it makes the next answer a refusal too.
+  if (looksLikeRefusal(text)) {
+    console.log("  -> the answer reads as a refusal; this exchange is not kept");
+    return;
+  }
 
   addTurn(channelId, "user", said);
   addTurn(channelId, "model", raw);
