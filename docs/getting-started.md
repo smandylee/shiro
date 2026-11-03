@@ -86,8 +86,8 @@ The ones that shape how she behaves:
 | Variable | Default | Effect |
 |---|---|---|
 | `SHIRO_TZ` | `Asia/Hong_Kong` | Timezone for the briefing, quiet hours and nightly jobs. **Set this.** |
-| `SHIRO_BRIEFING` | `clock` | `wake` sends the briefing when your day starts instead of at a fixed hour: when you come online, or send a first message, after 4+ hours away (`SHIRO_WAKE_AWAY_HOURS`), from 5 a.m. (`SHIRO_WAKE_DAY_START`). For sleep too irregular for a fixed hour. |
-| `SHIRO_PRESENCE` | off | `1` lets `wake` see your online status. Switch on the **Presence Intent** (Developer Portal → Bot) first: without it Discord refuses the login. Works only in a server you share with the bot. Without it, `wake` goes by your messages alone. |
+| `SHIRO_BRIEFING` | `clock` | `wake` sends the briefing when your day starts instead of at a fixed hour: when you open Discord on a device (phone, PC), or send a first message, after 4+ hours away (`SHIRO_WAKE_AWAY_HOURS`), from 5 a.m. (`SHIRO_WAKE_DAY_START`). For sleep too irregular for a fixed hour. |
+| `SHIRO_PRESENCE` | off | `1` lets `wake` see which devices you are connected on (the status word is ignored, so an always-idle status is fine). Switch on the **Presence Intent** (Developer Portal → Bot) first: without it Discord refuses the login. Works only in a server you share with the bot. Without it, `wake` goes by your messages alone. |
 | `SHIRO_BRIEFING_HOUR` | `8` | Morning briefing hour in `clock` mode (a late one is still sent until `SHIRO_BRIEFING_LATEST_HOUR`, `12`). |
 | `SHIRO_QUIET_START` / `_END` | `23` / `8` | To-do nudges stay silent in this window. |
 | `SHIRO_CHATTER_IDLE_MIN` | `30` | She never starts a conversation sooner than this after you last wrote. |

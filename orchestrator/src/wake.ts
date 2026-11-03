@@ -1,11 +1,12 @@
 import { getSetting, setSetting } from "./memory/settings.js";
-import { isActiveStatus, isWake, type WakeConfig } from "./wake-core.js";
+import { isWake, newDevices, type WakeConfig } from "./wake-core.js";
 
 // When the owner's day starts, for the morning briefing (SHIRO_BRIEFING=wake).
 //
-// Two signals feed it: their Discord status (needs SHIRO_PRESENCE=1 and the Presence Intent
-// switched on in the developer portal) and their own messages, which also cover invisible mode
-// and an install without the intent. Either one ending a long absence marks the day as started.
+// Two signals feed it: the devices they are connected to Discord on (needs SHIRO_PRESENCE=1 and
+// the Presence Intent switched on in the developer portal) and their own messages, which also
+// cover invisible mode and an install without the intent. Either one ending a long absence
+// marks the day as started.
 
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 const CFG: WakeConfig = {
@@ -51,14 +52,15 @@ export function ownerMessaged(now = Date.now()): boolean {
 }
 
 /**
- * The owner's Discord status changed. True if that started their day. Going away also counts
- * as the last moment they were seen, so the absence is measured from when they left.
+ * The owner's connected devices changed. True if a newly connected one started their day.
+ * A device dropping off also counts as the last moment they were seen, so the absence is
+ * measured from when they left. A desktop left connected overnight sends nothing either way;
+ * then the phone opening, or the first message, is what shows they are up.
  */
-export function ownerStatusChanged(before: string | null | undefined, after: string | null | undefined, now = Date.now()): boolean {
-  const was = isActiveStatus(before);
-  const is = isActiveStatus(after);
-  if (is && !was) return arrive(now, `status ${before ?? "unknown"} -> ${after}`);
-  if (was && !is) touch(now, true);
+export function ownerDevicesChanged(before: string[], after: string[], now = Date.now()): boolean {
+  const opened = newDevices(before, after);
+  if (opened.length > 0) return arrive(now, `opened on ${opened.join("+")}`);
+  if (before.some((d) => !after.includes(d))) touch(now, true);
   return false;
 }
 

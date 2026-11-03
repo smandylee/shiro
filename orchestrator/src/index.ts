@@ -15,7 +15,8 @@ import { handleGuildMessage, resolveOwnerHome, resolveTopicChannel, type Topic }
 import { warmMemory } from "./memory/longterm.js";
 import { setDiscordClient } from "./discord/actions.js";
 import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
-import { ownerMessaged, ownerStatusChanged } from "./wake.js";
+import { ownerDevicesChanged, ownerMessaged } from "./wake.js";
+import { connectedDevices } from "./wake-core.js";
 
 const token = process.env.DISCORD_BOT_TOKEN;
 if (!token) {
@@ -28,7 +29,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
-    // The owner's online status, for noticing when their day starts (wake.ts). A privileged
+    // Which devices the owner is connected on, for noticing when their day starts (wake.ts). A privileged
     // intent: unless it is also switched on in the developer portal, Discord refuses the login,
     // so it is only asked for when SHIRO_PRESENCE=1 says it has been.
     ...(process.env.SHIRO_PRESENCE === "1" ? [GatewayIntentBits.GuildPresences] : []),
@@ -148,8 +149,8 @@ client.once(Events.ClientReady, async (c) => {
 // Arrives once per server the owner shares with her; the second copy finds them already back.
 client.on(Events.PresenceUpdate, (before, after) => {
   if (after.userId !== OWNER_USER_ID) return;
-  // Coming online is the moment to brief them, not up to five minutes later.
-  if (ownerStatusChanged(before?.status, after.status)) checkProactiveNow?.();
+  // Opening Discord is the moment to brief them, not up to five minutes later.
+  if (ownerDevicesChanged(connectedDevices(before?.clientStatus), connectedDevices(after.clientStatus))) checkProactiveNow?.();
 });
 
 client.on(Events.MessageCreate, (message) => {
