@@ -12,7 +12,7 @@ import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
 
 // Writing words down is the one step where a lighter model may do: it is a copying
 // job, and the model call is the biggest single wait between "she heard me" and "she answers".
-const MODEL = process.env.SHIRO_TRANSCRIBE_MODEL ?? "gemini-3.8-flash";
+const MODEL = process.env.SHIRO_TRANSCRIBE_MODEL ?? "gemini-3-flash-preview";
 
 // No hints about what the owner might say (school, calendar, mail...): given
 // noise, the model turns such hints into a confident invented sentence.

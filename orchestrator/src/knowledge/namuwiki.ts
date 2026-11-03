@@ -1,7 +1,7 @@
 import { ai } from "../llm/client.js";
 import { recordUsage } from "../memory/usage.js";
 
-const MODEL = "gemini-3.8-flash";
+const MODEL = "gemini-3-flash-preview";
 const MAX_RESULT_CHARS = 4000;
 
 // namu.wiki blocks direct scraping from our VM (Cloudflare 403), but Google's

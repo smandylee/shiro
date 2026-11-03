@@ -14,7 +14,7 @@ import { recordUsage } from "../memory/usage.js";
 // calendar, memory or the shell, so nothing that happens in a Minecraft world
 // can reach them either. Everyone in that world is a stranger.
 
-const MODEL = "gemini-3.8-flash";
+const MODEL = "gemini-3-flash-preview";
 // Left alone she should still cost nothing worth noticing. This is a real bill
 // on Vertex, unlike the development requests, so the ceiling is a hard stop
 // rather than a warning.

@@ -19,7 +19,7 @@ import {
 // things that stopped being true. Every rewrite is snapshotted first, and she
 // never touches a line the owner wrote themselves.
 
-const MODEL = "gemini-3.8-flash";
+const MODEL = "gemini-3-flash-preview";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 const LEARN_HOUR = Number(process.env.SHIRO_PROFILE_HOUR ?? 4);
 // Nothing to learn from a couple of "안녕"s.

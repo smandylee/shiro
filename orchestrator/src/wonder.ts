@@ -20,7 +20,7 @@ import { recordUsage } from "./memory/usage.js";
 // conversation, nothing piled on an unanswered question, silenced by
 // mute_chatter).
 
-const MODEL = "gemini-3.8-flash";
+const MODEL = "gemini-3-flash-preview";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 
 // How soon after one idea she may have the next. There is no daily limit: she

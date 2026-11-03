@@ -59,7 +59,7 @@ import {
 import { moodBlock } from "../memory/mood.js";
 import { canvasEnabled, describeItem, listUpcomingCanvas, markCanvasDone } from "../canvas/feed.js";
 
-const MODEL = "gemini-3.8-flash";
+const MODEL = "gemini-3-flash-preview";
 
 // llm/intimacy.ts is kept out of git (gitignored; it lives on the PC and the server only),
 // so it is loaded here at start-up and may be missing: the specifier is a variable so tsc

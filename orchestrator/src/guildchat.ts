@@ -38,7 +38,7 @@ import { runExclusive, runTurn } from "./turn.js";
 // assumes the worse case. A friend invited next month must not find the owner's
 // mail waiting in a channel.
 
-const MODEL = "gemini-3.8-flash";
+const MODEL = "gemini-3-flash-preview";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 const SETTING_KEY = "guildChatServers";
 

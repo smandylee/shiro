@@ -40,7 +40,7 @@ import { maybeWonder } from "./wonder.js";
 // question for a while instead of chirping. There is no daily limit, and they
 // can silence her with mute_chatter.
 
-const MODEL = "gemini-3.8-flash";
+const MODEL = "gemini-3-flash-preview";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 
 // A conversation counts as over once it has been quiet this long; only then is it read for curiosity.
