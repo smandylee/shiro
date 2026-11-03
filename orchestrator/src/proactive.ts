@@ -20,7 +20,8 @@ import { wokeToday } from "./wake.js";
 // go out as a Discord DM and, when the avatar is up, in her voice. Nothing here
 // is time-critical, so it rides the reminder loop's 5-minute tick.
 
-const MODEL = "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "./llm/model-choice.js";
 
 // Everything else in Shiro reads the owner's clock as Hong Kong time.
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
@@ -290,7 +291,7 @@ function describe(todos: Todo[]): string {
 async function compose(instruction: string, data: string): Promise<string | null> {
   try {
     const res = await ai.models.generateContent({
-      model: MODEL,
+      model: chatModel(),
       contents: [
         {
           role: "user",

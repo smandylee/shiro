@@ -19,7 +19,8 @@ import {
 // things that stopped being true. Every rewrite is snapshotted first, and she
 // never touches a line the owner wrote themselves.
 
-const MODEL = "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "../llm/model-choice.js";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 const LEARN_HOUR = Number(process.env.SHIRO_PROFILE_HOUR ?? 4);
 // Nothing to learn from a couple of "안녕"s.
@@ -113,7 +114,7 @@ async function ask(turns: ReturnType<typeof getTurnsAfter>): Promise<Changes | n
     `[지금 알고 있는 것]\n${known}\n\n[새 대화]\n${transcript}`;
 
   const res = await ai.models.generateContent({
-    model: MODEL,
+    model: chatModel(),
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: {
       responseMimeType: "application/json",

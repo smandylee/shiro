@@ -1,7 +1,8 @@
 import { ai } from "../llm/client.js";
 import { recordUsage } from "../memory/usage.js";
 
-const MODEL = "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "../llm/model-choice.js";
 const MAX_RESULT_CHARS = 4000;
 
 // Google Search / URL grounding only works as a tool of a model call, so the
@@ -25,7 +26,7 @@ export async function searchWeb(query: string, url?: string): Promise<string> {
 - 마지막 줄에 참고한 출처(사이트 이름이나 주소)를 적는다.`;
 
   const res = await ai.models.generateContent({
-    model: MODEL,
+    model: chatModel(),
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: { tools: [{ googleSearch: {} }, { urlContext: {} }] },
   });

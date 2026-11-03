@@ -12,7 +12,8 @@ import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
 
 // Writing words down is the one step where a lighter model may do: it is a copying
 // job, and the model call is the biggest single wait between "she heard me" and "she answers".
-const MODEL = process.env.SHIRO_TRANSCRIBE_MODEL ?? "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "./llm/model-choice.js";
 
 // No hints about what the owner might say (school, calendar, mail...): given
 // noise, the model turns such hints into a confident invented sentence.
@@ -64,7 +65,7 @@ export async function transcribe(audio: VoiceAudio): Promise<string> {
   if (!hasSpeechEnergy(audio.data)) return "";
 
   const res = await withRetry(() => ai.models.generateContent({
-    model: MODEL,
+    model: process.env.SHIRO_TRANSCRIBE_MODEL ?? chatModel(),
     contents: [
       {
         role: "user",

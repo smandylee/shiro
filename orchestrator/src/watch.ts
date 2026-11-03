@@ -11,7 +11,8 @@ import { setWatchListener, type ScreenCapture } from "./avatar/bridge.js";
 // reacts or asks about the game — like someone sitting next to you. Frames are
 // only ever looked at, never stored; the owner turns this on and off themselves.
 
-const MODEL = "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "./llm/model-choice.js";
 // At most one remark per this many seconds, however much the screen changes.
 const COMMENT_GAP_MS = Number(process.env.SHIRO_WATCH_GAP_SEC ?? 60) * 1000;
 // Her first remark comes a little after watching starts, not on the first frame.
@@ -113,7 +114,7 @@ async function compose(frame: ScreenCapture, channelId: string, canAsk: boolean)
     `[최근 대화]\n${history || "(없음)"}`;
 
   const res = await ai.models.generateContent({
-    model: MODEL,
+    model: chatModel(),
     contents: [
       {
         role: "user",

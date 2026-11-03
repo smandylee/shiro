@@ -40,7 +40,8 @@ import { maybeWonder } from "./wonder.js";
 // question for a while instead of chirping. There is no daily limit, and they
 // can silence her with mute_chatter.
 
-const MODEL = "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "./llm/model-choice.js";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 
 // A conversation counts as over once it has been quiet this long; only then is it read for curiosity.
@@ -178,7 +179,7 @@ async function noteCuriosities(now: Date, channelId: string): Promise<void> {
     `[대화]\n${transcript}`;
 
   const res = await ai.models.generateContent({
-    model: MODEL,
+    model: chatModel(),
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: {
       systemInstruction: SYSTEM_PROMPT,
@@ -274,7 +275,7 @@ async function compose(now: Date, channelId: string, pick: Curiosity, lastAt: nu
 
   try {
     const res = await ai.models.generateContent({
-      model: MODEL,
+      model: chatModel(),
       contents: [
         {
           role: "user",

@@ -92,8 +92,8 @@
 
 ### ★ `/model`(한국어 `/모델`) 슬래시 명령어 — 코드 완료, **서버 미반영** (2026-11-03)
 
-주인님이 디스코드에서 `/model` 을 치면 대화 모델이 3.8 Flash(`gemini-3.8-flash`) ↔ 3 Flash(`gemini-3-flash-preview`) 로 바뀐다(옵션 비우면 반대쪽, 고르면 그쪽). 선택은 `settings.chatModel` 에 저장돼 재시작해도 유지, 기본값 3.0. **대화(`gemini.ts chat`)만 따라가고** 먼저 말 걸기·서버 채팅·받아쓰기 등 나머지 11곳은 `gemini-3-flash-preview` 고정. 한 턴 안에서는 모델을 안 바꾼다(도구 라운드의 thought signature 때문). 손님이 치면 "주인님만" 답만 하고 아무것도 안 바뀜. 코드 `llm/model-choice.ts`, `discord/commands.ts`, `index.ts`(등록·InteractionCreate). 타입체크 통과.
-- 서버에 `src.new-20261103-065339`(체크섬 맞춤)까지 올려 뒀고 교체·재시작은 안 했다. 올릴 때는 다시 직전 배포와 같은지·진행 중 답 없는지 보고 `mv src src.prev-20261103-065339 && mv src.new-20261103-065339 src && sudo systemctl restart shiro-orchestrator`. 저널에 `[commands] registered: /model` 이 떠야 한다. 전역 명령어라 디스코드에 보이기까지 몇 분 걸릴 수 있다.
+주인님이 디스코드에서 `/model` 을 치면 시로의 Gemini 모델이 3.8 Flash(`gemini-3.8-flash`) ↔ 3 Flash(`gemini-3-flash-preview`) 로 바뀐다(옵션 비우면 반대쪽, 고르면 그쪽). 선택은 `settings.chatModel` 에 저장돼 재시작해도 유지, **기본값 3.8**. **Gemini 글 호출 12곳이 전부 따라간다**(대화·먼저 말 걸기·궁금증·서버 채팅·브리핑·새벽 학습·관전·검색·나무위키·마크 계획자·받아쓰기). 받아쓰기는 서버에 `SHIRO_TRANSCRIBE_MODEL` 이 있으면 그 값이 우선. 음성 감지(`gemini-3.5-flash-lite`)와 임베딩은 그대로. 한 턴 안에서는 대화 모델을 안 바꾼다(도구 라운드의 thought signature 때문). 손님이 치면 "주인님만" 답만 하고 아무것도 안 바뀜. 코드 `llm/model-choice.ts`, `discord/commands.ts`, `index.ts`(등록·InteractionCreate). 타입체크 통과.
+- 올리면 저널에 `[commands] registered: /model` 이 떠야 한다. 전역 명령어라 디스코드에 보이기까지 몇 분 걸릴 수 있다. (서버에 남은 `src.new-20261103-065339` 는 이전 판이라 쓰지 않는다.)
 
 ### ★ 모델을 Gemini 3 Flash(`gemini-3-flash-preview`) 로 — 11/3 05:34 서버 반영 (2026-11-03)
 
@@ -368,7 +368,7 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 
 최신이 위.
 
-### 2026-11-03 — `/model` 슬래시 명령어로 대화 모델 3.8 Flash ↔ 3 Flash 전환 (코드 완료, 서버 미반영)
+### 2026-11-03 — `/model` 슬래시 명령어로 시로 전체 모델 3.8 Flash ↔ 3 Flash 전환, 기본 3.8 (코드 완료, 서버 미반영)
 
 자세한 건 위 [다음].
 

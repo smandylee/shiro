@@ -20,7 +20,8 @@ import { recordUsage } from "./memory/usage.js";
 // conversation, nothing piled on an unanswered question, silenced by
 // mute_chatter).
 
-const MODEL = "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "./llm/model-choice.js";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 
 // How soon after one idea she may have the next. There is no daily limit: she
@@ -74,7 +75,7 @@ export type Generate = (prompt: string) => Promise<string | null>;
 
 async function askModel(prompt: string): Promise<string | null> {
   const res = await ai.models.generateContent({
-    model: MODEL,
+    model: chatModel(),
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: {
       systemInstruction: SYSTEM_PROMPT,

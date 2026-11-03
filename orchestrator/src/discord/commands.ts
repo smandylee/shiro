@@ -7,8 +7,8 @@ import {
 } from "discord.js";
 import { CHAT_MODELS, chatModelKey, isChatModelKey, setChatModel, type ChatModelKey } from "../llm/model-choice.js";
 
-// Discord slash commands. Only /model for now: the owner switches the conversation model
-// between Gemini 3.8 Flash and Gemini 3 Flash. Registered globally on start-up (set() replaces
+// Discord slash commands. Only /model for now: the owner switches the model every Gemini
+// call uses (see llm/model-choice.ts) between Gemini 3.8 Flash and Gemini 3 Flash. Registered globally on start-up (set() replaces
 // the whole list, so a command removed here disappears from Discord too). Anyone can see a
 // global command; only the owner's use of it does anything.
 
@@ -21,8 +21,8 @@ const COMMANDS = [
   new SlashCommandBuilder()
     .setName("model")
     .setNameLocalizations({ ko: "모델" })
-    .setDescription("Switch Shiro's conversation model (owner only)")
-    .setDescriptionLocalizations({ ko: "시로의 대화 모델 바꾸기 (주인님 전용)" })
+    .setDescription("Switch Shiro's Gemini model (owner only)")
+    .setDescriptionLocalizations({ ko: "시로의 모델 바꾸기 (주인님 전용)" })
     .setContexts(InteractionContextType.BotDM, InteractionContextType.Guild)
     .addStringOption((option) =>
       option
@@ -62,7 +62,7 @@ export async function handleInteraction(interaction: Interaction, ownerUserId: s
 
   const content =
     next === before
-      ? `이미 ${LABELS[next]}(${CHAT_MODELS[next]})로 대화하고 있어.`
-      : `대화 모델을 ${LABELS[before]} → ${LABELS[next]}(${CHAT_MODELS[next]})로 바꿨어. 다음 메시지부터 적용돼.`;
+      ? `이미 ${LABELS[next]}(${CHAT_MODELS[next]})를 쓰고 있어.`
+      : `모델을 ${LABELS[before]} → ${LABELS[next]}(${CHAT_MODELS[next]})로 바꿨어. 다음 메시지부터 전부 이걸로 해.`;
   await interaction.reply({ content, flags: MessageFlags.Ephemeral });
 }

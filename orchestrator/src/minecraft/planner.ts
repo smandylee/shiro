@@ -14,7 +14,8 @@ import { recordUsage } from "../memory/usage.js";
 // calendar, memory or the shell, so nothing that happens in a Minecraft world
 // can reach them either. Everyone in that world is a stranger.
 
-const MODEL = "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "../llm/model-choice.js";
 // Left alone she should still cost nothing worth noticing. This is a real bill
 // on Vertex, unlike the development requests, so the ceiling is a hard stop
 // rather than a warning.
@@ -136,7 +137,7 @@ export async function decide(state: WorldState): Promise<Plan | null> {
 
   try {
     const res = await ai.models.generateContent({
-      model: MODEL,
+      model: chatModel(),
       contents: [{ role: "user", parts: [{ text: describe(state) }] }],
       config: {
         systemInstruction: SYSTEM_PROMPT,

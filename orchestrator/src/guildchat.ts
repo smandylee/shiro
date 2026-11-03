@@ -38,7 +38,8 @@ import { runExclusive, runTurn } from "./turn.js";
 // assumes the worse case. A friend invited next month must not find the owner's
 // mail waiting in a channel.
 
-const MODEL = "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "./llm/model-choice.js";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 const SETTING_KEY = "guildChatServers";
 
@@ -179,7 +180,7 @@ function render(lines: GroupLine[], ctx: GroupContext): string {
 export async function decide(lines: GroupLine[], ctx: GroupContext): Promise<Decision | null> {
   try {
     const res = await ai.models.generateContent({
-      model: MODEL,
+      model: chatModel(),
       contents: [{ role: "user", parts: [{ text: render(lines, ctx) }] }],
       config: {
         systemInstruction: ctx.ownerRoom

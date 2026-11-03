@@ -12,7 +12,8 @@ import { MAX_NOTE_LENGTH } from "./mood-core.js";
 // hours, so a number set at 4am would be gone before the owner wakes up. It reads
 // the conversation only; it sends nothing.
 
-const MODEL = "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "../llm/model-choice.js";
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
 const REFLECT_HOUR = Number(process.env.SHIRO_MOOD_HOUR ?? 4);
 // A couple of "안녕"s leave nothing to carry over.
@@ -88,7 +89,7 @@ async function ask(turns: ReturnType<typeof getTurnsAfter>): Promise<Reflection 
     `[오늘 대화]\n${transcript}`;
 
   const res = await ai.models.generateContent({
-    model: MODEL,
+    model: chatModel(),
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: {
       responseMimeType: "application/json",

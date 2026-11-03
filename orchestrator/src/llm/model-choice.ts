@@ -1,9 +1,10 @@
 import { getSetting, setSetting } from "../memory/settings.js";
 
-// Which Gemini model the conversation (gemini.ts chat) uses, switched by the owner with the
-// /model slash command (discord/commands.ts). Kept in the settings table so a restart keeps
-// it. Only the conversation follows it; background calls (chatter, wonder, guild chat, ...)
-// keep their own fixed model.
+// Which Gemini model Shiro uses, switched by the owner with the /model slash command
+// (discord/commands.ts). Kept in the settings table so a restart keeps it. Every Gemini text
+// call follows it: the conversation, chatter, wonder, guild chat, briefings, learning,
+// transcription (unless SHIRO_TRANSCRIBE_MODEL is set) and the rest. The speech check in
+// voice (a lite model) and the embeddings are separate and stay as they are.
 
 export const CHAT_MODELS = {
   "3.8": "gemini-3.8-flash",
@@ -13,7 +14,7 @@ export const CHAT_MODELS = {
 export type ChatModelKey = keyof typeof CHAT_MODELS;
 
 const SETTING_KEY = "chatModel";
-const DEFAULT_KEY: ChatModelKey = "3.0";
+const DEFAULT_KEY: ChatModelKey = "3.8";
 
 export function isChatModelKey(value: unknown): value is ChatModelKey {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(CHAT_MODELS, value);

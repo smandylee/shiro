@@ -1,7 +1,8 @@
 import { ai } from "../llm/client.js";
 import { recordUsage } from "../memory/usage.js";
 
-const MODEL = "gemini-3-flash-preview";
+// Follows the owner's /model choice (llm/model-choice.ts), read on every call.
+import { chatModel } from "../llm/model-choice.js";
 const MAX_RESULT_CHARS = 4000;
 
 // namu.wiki blocks direct scraping from our VM (Cloudflare 403), but Google's
@@ -26,7 +27,7 @@ ${focus}
 - 마지막 줄에 참고한 문서 제목을 적는다.`;
 
   const res = await ai.models.generateContent({
-    model: MODEL,
+    model: chatModel(),
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: { tools: [{ googleSearch: {} }, { urlContext: {} }] },
   });
