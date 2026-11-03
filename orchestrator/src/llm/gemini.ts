@@ -59,7 +59,8 @@ import {
 import { moodBlock } from "../memory/mood.js";
 import { canvasEnabled, describeItem, listUpcomingCanvas, markCanvasDone } from "../canvas/feed.js";
 
-const MODEL = "gemini-3-flash-preview";
+// The conversation model is the owner's choice (/model, see model-choice.ts), read every turn.
+import { chatModel } from "./model-choice.js";
 
 // llm/intimacy.ts is kept out of git (gitignored; it lives on the PC and the server only),
 // so it is loaded here at start-up and may be missing: the specifier is a variable so tsc
@@ -620,6 +621,7 @@ const RELEASE_AT_LENGTH = 80;
  * hold-back above); tool calls and the rest are collected and returned.
  */
 async function generateRound(
+  model: string,
   contents: Content[],
   config: Record<string, unknown>,
   onText?: (delta: string) => void
@@ -629,7 +631,7 @@ async function generateRound(
 
   for (let attempt = 0; ; attempt++) {
     try {
-      const stream = await ai.models.generateContentStream({ model: MODEL, contents, config });
+      const stream = await ai.models.generateContentStream({ model, contents, config });
       const round: Round = { text: "", functionCalls: [], parts: [] };
       let held = "";
 
@@ -1020,7 +1022,7 @@ const WITHHELD_FINISH = new Set(["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "S
 export class EmptyReplyError extends Error {
   readonly blocked: boolean;
   constructor(round: { finishReason?: string; blockReason?: string }, readonly toolCalls: number) {
-    super(`empty response from ${MODEL}: finish=${round.finishReason ?? "-"} block=${round.blockReason ?? "-"}`);
+    super(`empty response from ${chatModel()}: finish=${round.finishReason ?? "-"} block=${round.blockReason ?? "-"}`);
     this.blocked = Boolean(round.blockReason) || WITHHELD_FINISH.has(round.finishReason ?? "");
   }
 }
@@ -1131,7 +1133,10 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
     };
   };
 
-  let response = await generateRound(contents, config, emitter());
+  // One model for the whole turn: tool rounds send back that model's thought signatures,
+  // so a /model switch in the middle of a reply takes effect from the next message.
+  const model = chatModel();
+  let response = await generateRound(model, contents, config, emitter());
   tally(response);
   let touchedPersonalData = false;
   const turn: TurnState = { proposedThisTurn: false, images: [], browserGated: false };
@@ -1212,7 +1217,7 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
       }),
     });
 
-    response = await generateRound(contents, config, emitter());
+    response = await generateRound(model, contents, config, emitter());
     tally(response);
   }
 
@@ -1245,7 +1250,7 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
     }
 
     // Withhold the tools so the model has to reply in words instead of looping.
-    response = await generateRound(contents, { systemInstruction, ...thinking, ...safety }, emitter());
+    response = await generateRound(model, contents, { systemInstruction, ...thinking, ...safety }, emitter());
     tally(response);
   }
 

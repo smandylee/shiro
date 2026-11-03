@@ -14,6 +14,7 @@ import { describeError } from "./google/errors.js";
 import { handleGuildMessage, resolveOwnerHome, resolveTopicChannel, type Topic } from "./guildchat.js";
 import { warmMemory } from "./memory/longterm.js";
 import { setDiscordClient } from "./discord/actions.js";
+import { handleInteraction, registerSlashCommands } from "./discord/commands.js";
 import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
 import { ownerDevicesChanged, ownerMessaged } from "./wake.js";
 import { connectedDevices } from "./wake-core.js";
@@ -52,6 +53,7 @@ let checkProactiveNow: (() => void) | null = null;
 client.once(Events.ClientReady, async (c) => {
   console.log(`logged in as ${c.user.tag}`);
   setDiscordClient(client);
+  void registerSlashCommands(c);
   // A batch from the PC-side JobSpy crawler, relayed through the avatar; stored
   // for check_jobs to hand out on request, never announced on its own.
   setJobListener((postings) => {
@@ -151,6 +153,13 @@ client.on(Events.PresenceUpdate, (before, after) => {
   if (after.userId !== OWNER_USER_ID) return;
   // Opening Discord is the moment to brief them, not up to five minutes later.
   if (ownerDevicesChanged(connectedDevices(before?.clientStatus), connectedDevices(after.clientStatus))) checkProactiveNow?.();
+});
+
+// Slash commands (/model). Not a message: nothing here enters the history or her memory.
+client.on(Events.InteractionCreate, (interaction) => {
+  handleInteraction(interaction, OWNER_USER_ID).catch((err) => {
+    console.error("[commands] failed:", err);
+  });
 });
 
 client.on(Events.MessageCreate, (message) => {
