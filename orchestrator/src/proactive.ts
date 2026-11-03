@@ -14,6 +14,7 @@ import { maybeChat } from "./chatter.js";
 import { maybeLearnProfile } from "./memory/profile-learn.js";
 import { maybeReflectOnDay } from "./memory/mood-learn.js";
 import { moodBlock } from "./memory/mood.js";
+import { wokeToday } from "./wake.js";
 
 // Shiro speaking first: a morning briefing and nudges for overdue to-dos. Both
 // go out as a Discord DM and, when the avatar is up, in her voice. Nothing here
@@ -23,6 +24,9 @@ const MODEL = "gemini-3.7-flash";
 
 // Everything else in Shiro reads the owner's clock as Hong Kong time.
 const TZ = process.env.SHIRO_TZ ?? "Asia/Hong_Kong";
+// "clock": at a fixed hour. "wake": when the owner's day actually starts (wake.ts) — for an owner
+// whose sleep is too irregular for a fixed hour to find them awake.
+const BRIEFING_MODE = process.env.SHIRO_BRIEFING === "wake" ? "wake" : "clock";
 const BRIEFING_HOUR = Number(process.env.SHIRO_BRIEFING_HOUR ?? 8);
 // If the service was down at briefing time, a late briefing is still useful —
 // but not one at dinnertime.
@@ -87,14 +91,21 @@ export async function checkProactive(getChannel: GetChannel): Promise<void> {
 
 async function maybeBrief(now: Date, channelId: string, channel: SendableChannel): Promise<boolean> {
   const today = localDate(now);
-  const hour = localHour(now);
-  if (hour < BRIEFING_HOUR || hour >= BRIEFING_LATEST_HOUR) return false;
   if (getSetting("lastBriefingDate") === today) return false;
+  if (BRIEFING_MODE === "wake") {
+    if (!wokeToday(now.getTime())) return false;
+  } else {
+    const hour = localHour(now);
+    if (hour < BRIEFING_HOUR || hour >= BRIEFING_LATEST_HOUR) return false;
+  }
 
   const facts = await gatherBriefing(now);
   const raw = await compose(
     `[자동 브리핑] 지금은 ${now.toLocaleDateString("ko-KR", { timeZone: TZ, month: "long", day: "numeric", weekday: "long" })} ${clock(now)}야. ` +
-      `주인님의 하루가 시작되는 시간이라, 시로가 먼저 아침 인사 겸 오늘 브리핑을 해줘.\n` +
+      (BRIEFING_MODE === "wake"
+        ? `주인님이 오래 자리를 비웠다가(아마 자고 일어나서) 방금 돌아왔어. 시로가 먼저 지금 시각에 맞는 인사 겸 오늘 브리핑을 해줘. ` +
+          `오후라면 "좋은 아침"이라고 하지 않는다.\n`
+        : `주인님의 하루가 시작되는 시간이라, 시로가 먼저 아침 인사 겸 오늘 브리핑을 해줘.\n`) +
       `- 아래 데이터에 있는 것만 말하고, 없는 건 지어내지 않는다.\n` +
       `- 3~5줄로 짧게. 일정은 시각과 함께 말한다.\n` +
       `- 기한이 지난 할 일이 있으면 가볍게 먼저 짚는다.\n` +

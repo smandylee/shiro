@@ -15,6 +15,7 @@ import { handleGuildMessage, resolveOwnerHome, resolveTopicChannel, type Topic }
 import { warmMemory } from "./memory/longterm.js";
 import { setDiscordClient } from "./discord/actions.js";
 import { runExclusive, runTurn, type TurnChannel } from "./turn.js";
+import { ownerMessaged, ownerStatusChanged } from "./wake.js";
 
 const token = process.env.DISCORD_BOT_TOKEN;
 if (!token) {
@@ -27,6 +28,10 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
+    // The owner's online status, for noticing when their day starts (wake.ts). A privileged
+    // intent: unless it is also switched on in the developer portal, Discord refuses the login,
+    // so it is only asked for when SHIRO_PRESENCE=1 says it has been.
+    ...(process.env.SHIRO_PRESENCE === "1" ? [GatewayIntentBits.GuildPresences] : []),
   ],
   partials: [Partials.Channel, Partials.Message],
 });
@@ -39,6 +44,9 @@ if (!OWNER_USER_ID) {
 }
 
 const REMINDER_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+
+// Set once the client is ready: runs the proactive check now instead of at the next tick.
+let checkProactiveNow: (() => void) | null = null;
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`logged in as ${c.user.tag}`);
@@ -130,10 +138,24 @@ client.once(Events.ClientReady, async (c) => {
 
   runReminderCheck();
   setInterval(runReminderCheck, REMINDER_CHECK_INTERVAL_MS);
+  checkProactiveNow = () => {
+    checkProactive(getChannel).catch((err) => {
+      console.error("[proactive] check failed:", describeError(err));
+    });
+  };
+});
+
+// Arrives once per server the owner shares with her; the second copy finds them already back.
+client.on(Events.PresenceUpdate, (before, after) => {
+  if (after.userId !== OWNER_USER_ID) return;
+  // Coming online is the moment to brief them, not up to five minutes later.
+  if (ownerStatusChanged(before?.status, after.status)) checkProactiveNow?.();
 });
 
 client.on(Events.MessageCreate, (message) => {
   if (message.author.bot) return;
+  // A message that starts the owner's day is answered first; the briefing follows on the next tick.
+  if (message.author.id === OWNER_USER_ID) ownerMessaged();
   if (message.guild) {
     // Server chat is a different thing from a DM: many people, none of them
     // necessarily the owner, and she only speaks where it has been switched on.

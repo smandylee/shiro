@@ -39,6 +39,7 @@ orchestrator/   TS, ESM, tsx로 실행. VM(홍콩 Lightsail)에서 systemd로 24
   src/chatter.ts      시로가 먼저 말 거는 것: 물어보고 싶은 것 목록 → 지금이 때인지 판단
   src/wonder.ts       대화와 무관하게 스스로 궁금해하기 (목록이 비면 소재를 만든다)
   src/proactive.ts    아침 브리핑·할 일 알림, 새벽 학습(프로필·기분)을 부르는 틱
+  src/wake.ts         주인님의 하루가 시작된 순간 감지 (접속 상태·첫 메시지, 4시간+ 부재 뒤). 규칙은 wake-core.ts
   src/voice.ts        음성 받아쓰기 (Gemini)
   src/memory/         SQLite(단기·설정·연락처·할일·사용량·프로필·기분·궁금증) + 장기기억(벡터도 SQLite, `SHIRO_MEMORY_STORE`; Pinecone은 선택·미러)
     mood.ts           기분과 "남은 마음" (계산·문구는 mood-core.ts, 새벽 회고는 mood-learn.ts)
@@ -104,6 +105,8 @@ orchestrator 로직은 모델·DB를 가짜로 바꿔 단위로 시험하고, �
   `SHIRO_MEMORY_STORE`: `pinecone` / `local`(로컬을 읽고 쓰며 Pinecone에도 미러) / `local-only`. 서버는 `local`.
   되돌리기는 `/etc/shiro.env`의 값을 `pinecone`으로 바꾸고 재시작. 벡터 모델(768차원)을 바꾸면 기존 기억과
   비교가 안 되니 다시 임베딩해야 한다. DB에 쓰는 스크립트는 **`ubuntu`로** 돌린다 (root로 돌리면 파일 소유가 바뀐다).
+- **`SHIRO_PRESENCE=1`은 개발자 포털에서 Presence Intent를 켠 뒤에만 넣는다.** 안 켠 채로 넣으면
+  디스코드가 로그인을 거부해서 시로가 아예 안 켜진다. 접속 상태는 봇과 같은 서버에 있어야 보인다.
 - **응답이 갑자기 몇 분씩 느려지면 서비스부터 재시작한다.** 서버·네트워크·모델은 정상이고
   돌던 프로세스만 느린 일이 있었다 (WORKLOG 10/19).
 - **이 맥북(macOS 13.0)에서는 `better-sqlite3`가 단독으로도 segfault**라서 orchestrator를
