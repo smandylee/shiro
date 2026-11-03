@@ -90,7 +90,14 @@
   **되돌리기:** `cd ~/orchestrator && mv src src.bad && mv src.prev-20261103-042900 src && sudo systemctl restart shiro-orchestrator` (처음 판으로는 `035240`).
 - 서버 메모리가 1GB 대라 **서버에서 `tsc` 를 돌리면 힙이 부족해 죽는다** — 타입체크는 PC 에서 한다. 시험 중 3.8 에서도 `429`(할당량)가 10번 중 2번 나왔다 — 모델 교체만으론 안 풀린다. 위 "말 걸기 판단 실패" 와 같이 본다.
 
-### ★ 모델을 3.8-flash 로 — 11/3 서버 반영, 429·지연이 줄었는지 지켜볼 것 (2026-11-03)
+### ★ 모델을 Gemini 3 Flash(`gemini-3-flash-preview`) 로 — 11/3 05:34 서버 반영 (2026-11-03)
+
+3.8-flash → `gemini-3-flash-preview` 로 12곳 모두 교체해 올렸다. **이 프로젝트에서 `gemini-3.0-flash`·`gemini-3-flash` 는 404 이고 `-preview` 만 된다.** 서버에서 도구 선언·`thinkingBudget: 0`·안전 설정을 모두 받아들이고 도구(`check_calendar`)도 부르는 걸 확인하고 올렸다. 이전 코드 `src.prev-20261103-053424`. **되돌리기:** `cd ~/orchestrator && mv src src.bad && mv src.prev-20261103-053424 src && sudo systemctl restart shiro-orchestrator`.
+- **preview ID 라서 이름이 바뀌거나 폐기될 수 있다.** 갑자기 모든 대화가 실패하면 모델 이름부터 본다(서버 로그에 404). 가격은 제3자 사이트 기준 입력 $0.50 / 출력 $3.00 per 1M 으로 3.8-flash($0.75/$3.75) 보다 싸지만 Vertex 가격표로 확인할 것. 모델별 할당량(429)이 어떤지는 아직 모른다.
+- 받아쓰기(`voice.ts`) 기본값도 이 모델로 바뀌었다 — 10/19 에 3.7 이 16~33초씩 튀었으니 다시 재 본다(서버에 `SHIRO_TRANSCRIBE_MODEL` 이 있으면 그 값이 우선).
+- 모델을 바꾸는 이유가 "거절이 덜 나오길" 이었다면, 같은 회사 모델이라 같은 정책이다 — 줄어든다고 기대하지 않는다.
+
+### (이전) 모델을 3.8-flash 로 — 11/3 서버 반영, 429·지연이 줄었는지 지켜볼 것 (2026-11-03)
 
 `orchestrator/src` 의 `gemini-3.7-flash` 12곳을 `gemini-3.8-flash` 로 바꿔 올렸다(말 걸기·궁금증·대화·검색·프로필·기분·서버 채팅·마크 계획자·받아쓰기 기본값). 받아쓰기 확인용 `gemini-3.5-flash-lite` 는 그대로.
 서버에서 두 모델에 한 줄씩 보내 둘 다 응답하는 걸 확인하고 올렸다(3.8 약 12초, 3.7 약 27초 — **한 번 잰 값이라 결론 아님**, 둘 다 느린 편). 서비스 `active`, `logged in as` 확인.
