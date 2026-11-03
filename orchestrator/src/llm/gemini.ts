@@ -13,6 +13,7 @@ import {
 import { recordUsage, estimateKrw, formatUsage, type UsageCounts } from "../memory/usage.js";
 import { ai } from "./client.js";
 import { SYSTEM_PROMPT } from "../persona.js";
+import { OWNER_INTIMACY } from "./intimacy.js";
 import { runApprovedCommand } from "../openclaw/client.js";
 import { proposeCommand, getPendingCommand, markCommand, cancelPending } from "../pc/commands.js";
 import { listUnreadEmails, searchEmails, readEmail } from "../google/gmail.js";
@@ -1036,6 +1037,7 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
         `주인님이 "내가 뭐 좋아하는지 알아?"처럼 직접 물으면 show_profile로 확인하고 답한다.]\n${profile}`;
     }
     systemInstruction += moodBlock();
+    systemInstruction += OWNER_INTIMACY;
   }
   if (!isOwner) {
     systemInstruction += contactName
