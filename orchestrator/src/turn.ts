@@ -1,4 +1,4 @@
-import { chat, type MediaPart } from "./llm/gemini.js";
+import { chat, EmptyReplyError, type MediaPart } from "./llm/gemini.js";
 import { parseEmotionTag } from "./persona.js";
 import { StreamedReply } from "./reply.js";
 import { addTurn, getRecentHistory } from "./memory/shortterm.js";
@@ -215,9 +215,8 @@ export async function runTurn(input: TurnInput): Promise<void> {
   // Nothing she says to spoken words is shown until a person is confirmed to have spoken.
   if (voice) reply.hold(voice.speech);
 
-  let result: { text: string; touchedPersonalData: boolean };
-  try {
-    result = await chat(history, text_, {
+  const callChat = () =>
+    chat(history, text_, {
       memoryContext,
       sessionKey: `shiro:${channelId}`,
       images: files.media,
@@ -228,11 +227,34 @@ export async function runTurn(input: TurnInput): Promise<void> {
       toolGate: voice?.speech,
       onText: (delta) => reply.push(delta),
     });
+
+  let result: { text: string; touchedPersonalData: boolean };
+  try {
+    try {
+      result = await callChat();
+    } catch (err) {
+      // An answer that came back empty without being withheld is tried once more. A
+      // withheld one (a safety block) is not: asking again gets the same answer. And
+      // never after tools ran this turn, which would do their work a second time.
+      if (err instanceof EmptyReplyError && !err.blocked && err.toolCalls === 0) {
+        console.log(`  -> empty answer (${err.message}), trying once more`);
+        result = await callChat();
+      } else {
+        throw err;
+      }
+    }
   } catch (err) {
     console.error("gemini chat failed:", err);
     // Lines already on their way finish first, so the apology comes after them.
     await reply.abort();
-    await channel.send("(어... 지금 머리가 잘 안 돌아가네. 잠깐 후에 다시 말 걸어줄래?)");
+    if (err instanceof EmptyReplyError && err.blocked) {
+      // Nothing of this exchange is stored: the history and her memory are written
+      // below, only after an answer that was actually given.
+      console.log("  -> the model withheld its answer; this exchange is not kept");
+      await channel.send("(그 얘긴 내가 입 밖에 내기 좀 그러네... 다른 얘기 하자)");
+    } else {
+      await channel.send("(어... 지금 머리가 잘 안 돌아가네. 잠깐 후에 다시 말 걸어줄래?)");
+    }
     return;
   }
 

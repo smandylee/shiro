@@ -604,6 +604,9 @@ type Round = {
   // including any thought signatures, exactly as it arrived.
   parts: Part[];
   usageMetadata?: GenerateContentResponseUsageMetadata;
+  /** Why the model stopped, and whether the request itself was refused: how a block shows up. */
+  finishReason?: string;
+  blockReason?: string;
 };
 
 // How much text to hold back before letting it out. A round that goes on to call
@@ -653,6 +656,10 @@ async function generateRound(
           }
         }
         if (chunk.usageMetadata) round.usageMetadata = chunk.usageMetadata;
+        const finish = chunk.candidates?.[0]?.finishReason;
+        if (finish) round.finishReason = finish;
+        const blocked = chunk.promptFeedback?.blockReason;
+        if (blocked) round.blockReason = blocked;
       }
 
       // A short answer never completes a line: release it now, unless the round
@@ -1002,6 +1009,22 @@ async function runTool(
 
 export type ChatResult = { text: string; touchedPersonalData: boolean };
 
+// Finish reasons that mean the answer was withheld on purpose, not that something broke.
+const WITHHELD_FINISH = new Set(["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "IMAGE_SAFETY", "IMAGE_PROHIBITED_CONTENT"]);
+
+/**
+ * The model came back with nothing to say. `blocked` is true when it was withheld
+ * (a safety block, which asking again does not change); otherwise it is an empty
+ * answer that is worth one more try, unless tools already ran in this turn.
+ */
+export class EmptyReplyError extends Error {
+  readonly blocked: boolean;
+  constructor(round: { finishReason?: string; blockReason?: string }, readonly toolCalls: number) {
+    super(`empty response from ${MODEL}: finish=${round.finishReason ?? "-"} block=${round.blockReason ?? "-"}`);
+    this.blocked = Boolean(round.blockReason) || WITHHELD_FINISH.has(round.finishReason ?? "");
+  }
+}
+
 export async function chat(history: ChatTurn[], userMessage: string, opts: ChatOptions): Promise<ChatResult> {
   const { memoryContext, sessionKey, images, isOwner, senderId, contactName, onText } = opts;
 
@@ -1235,7 +1258,7 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
 
   const text = spoken || response.text;
   if (!text) {
-    throw new Error(`empty response from ${MODEL}: ${JSON.stringify(response)}`);
+    throw new EmptyReplyError(response, toolCallsUsed);
   }
   return { text, touchedPersonalData };
 }
