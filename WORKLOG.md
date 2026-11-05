@@ -90,6 +90,14 @@
   **되돌리기:** `cd ~/orchestrator && mv src src.bad && mv src.prev-20261103-042900 src && sudo systemctl restart shiro-orchestrator` (처음 판으로는 `035240`).
 - 서버 메모리가 1GB 대라 **서버에서 `tsc` 를 돌리면 힙이 부족해 죽는다** — 타입체크는 PC 에서 한다. 시험 중 3.8 에서도 `429`(할당량)가 10번 중 2번 나왔다 — 모델 교체만으론 안 풀린다. 위 "말 걸기 판단 실패" 와 같이 본다.
 
+### ★ 시로의 자기 노트 (인격이 기억에서 자라게) — 코드 완료·시험 통과, **서버 미반영** (2026-11-06)
+
+프로필이 "주인님에 대해 아는 것"이라면 이건 **"시로가 자기에 대해 아는 것"**: 취향·의견(`taste`), 말버릇·습관(`habit`), 주인님과 나 사이의 농담·별명·약속(`bond`) 합쳐 최대 30줄(줄당 120자) + 최근 며칠 일기 한 단락(400자, 5일 지나면 프롬프트에서 빠짐). 코드 `memory/self.ts`(저장·스냅샷·표시), `memory/self-learn.ts`(새벽 4시 학습·초안·적용), `gemini.ts`(주인님 대화에만 프롬프트에 붙임 + 도구 `show_self`·`edit_self`), `proactive.ts`(틱에서 `maybeLearnSelf`), `scripts/self-draft.ts`, 시험 `tests/self.test.ts`.
+- **켜기 전까지 아무 일도 안 일어난다.** `settings.selfNotesOn` 이 `1` 이어야 프롬프트에 붙고 밤 학습도 돈다. 올린 뒤 서버에서 `ubuntu` 로: `cd ~/orchestrator && set -a; . /etc/shiro.env; set +a; npx tsx scripts/self-draft.ts` → 장기기억 중 주인님과의 최근 150건으로 초안을 뽑아 `data/self-draft.json` 에 저장하고 화면에 보여 준다 → 읽어 보고 괜찮으면 `--write`(읽은 그 파일 그대로 적용+켜기), 끄려면 `--off`.
+- 안전장치: 밤마다 새 줄은 4개까지·고치기/지우기 8개까지, 두 번 이상 나왔거나 주인님이 반응한 것만(프롬프트로 요구), 주인님이 직접 쓴 줄은 못 건드림, 적용 전 스냅샷(`self_snapshots`, 60개), 시로의 거절·"AI 비서로서" 줄은 노트에 못 들어감(`looksLikeRefusal` + 정규식, 학습 입력에서도 거절 답을 뺌), 노골적 성적 묘사·신체·결제·건강·계정 정보는 적지 말라고 지시, 노트가 규칙을 못 바꾼다는 문구와 지시문 무시 문구 포함. 시로 안전 규칙(`persona.ts`)은 안 건드림. 노트는 서버 DB 에만 있고 git 에 안 올라간다.
+- **올리기 전에 해야 할 것:** `ownerTools` 선언이 바뀌었으니(`show_self`·`edit_self`) CLAUDE.md 대로 서버에서 실제 모델에 선언을 보내 스키마가 받아들여지는지 확인. 아직 안 했다.
+- 알려 둔 한계: 처음 며칠은 노트가 얇다. 밤 학습의 품질(너무 일반적인 줄, 거짓 줄)은 써 보며 봐야 한다 — 이상한 줄은 시로에게 "그거 지워" 하면 된다.
+
 ### ★ `/model`(한국어 `/모델`) 슬래시 명령어 — 11/3 08:33 서버 반영 (2026-11-03)
 
 서버 `src` 가 직전 배포(`ab05074`)와 같음을 확인하고 바뀐 15개 파일 교체·재시작. 저널에 `logged in`·`[commands] registered: /model`·`[memory] warmed up` 확인. 이전 코드 `src.prev-20261103-083229`. **되돌리기:** `cd ~/orchestrator && mv src src.bad && mv src.prev-20261103-083229 src && sudo systemctl restart shiro-orchestrator`. 디스코드에서 실제로 `/모델` 을 쳐 본 건 아직.
