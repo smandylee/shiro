@@ -90,7 +90,9 @@
   **되돌리기:** `cd ~/orchestrator && mv src src.bad && mv src.prev-20261103-042900 src && sudo systemctl restart shiro-orchestrator` (처음 판으로는 `035240`).
 - 서버 메모리가 1GB 대라 **서버에서 `tsc` 를 돌리면 힙이 부족해 죽는다** — 타입체크는 PC 에서 한다. 시험 중 3.8 에서도 `429`(할당량)가 10번 중 2번 나왔다 — 모델 교체만으론 안 풀린다. 위 "말 걸기 판단 실패" 와 같이 본다.
 
-### ★ 시로의 자기 노트 (인격이 기억에서 자라게) — 코드 완료·시험 통과, **서버 미반영** (2026-11-06)
+### ★ 시로의 자기 노트 (인격이 기억에서 자라게) — 11/5 18:07 서버 반영, **꺼진 채**(초안 단계 전) (2026-11-06)
+
+**배포 기록:** 서버 `src` 가 직전 배포(`4253b5b`)와 같음을 확인(서버 전용 `llm/intimacy.ts` 제외)하고, 바뀐 4개 파일 + PC 의 새 `intimacy.ts`(주인님이 고침, 불러와지는 것 확인, 내용은 git 에 없음) + `scripts/self-draft.ts` 를 올려 교체·재시작. 새 도구 선언은 올리기 전에 서버에서 3.8·3.0 두 모델에 보내 받아들여지고 `show_self` 를 부르는 것을 확인. 저널에 `logged in`·`[commands] registered: /model`·`[memory] warmed up`(649건) 확인. 이전 코드 `src.prev-20261105-180627`. **되돌리기:** `cd ~/orchestrator && mv src src.bad && mv src.prev-20261105-180627 src && sudo systemctl restart shiro-orchestrator` (이 경우 서버의 `intimacy.ts` 도 이전 판으로 돌아간다). 이 재시작이 3.8 이 한참 멈춰 있던 호출도 끊었다. 아직 안 한 것: 초안 만들기(`scripts/self-draft.ts`)와 켜기.
 
 프로필이 "주인님에 대해 아는 것"이라면 이건 **"시로가 자기에 대해 아는 것"**: 취향·의견(`taste`), 말버릇·습관(`habit`), 주인님과 나 사이의 농담·별명·약속(`bond`) 합쳐 최대 30줄(줄당 120자) + 최근 며칠 일기 한 단락(400자, 5일 지나면 프롬프트에서 빠짐). 코드 `memory/self.ts`(저장·스냅샷·표시), `memory/self-learn.ts`(새벽 4시 학습·초안·적용), `gemini.ts`(주인님 대화에만 프롬프트에 붙임 + 도구 `show_self`·`edit_self`), `proactive.ts`(틱에서 `maybeLearnSelf`), `scripts/self-draft.ts`, 시험 `tests/self.test.ts`.
 - **켜기 전까지 아무 일도 안 일어난다.** `settings.selfNotesOn` 이 `1` 이어야 프롬프트에 붙고 밤 학습도 돈다. 올린 뒤 서버에서 `ubuntu` 로: `cd ~/orchestrator && set -a; . /etc/shiro.env; set +a; npx tsx scripts/self-draft.ts` → 장기기억 중 주인님과의 최근 150건으로 초안을 뽑아 `data/self-draft.json` 에 저장하고 화면에 보여 준다 → 읽어 보고 괜찮으면 `--write`(읽은 그 파일 그대로 적용+켜기), 끄려면 `--off`.
