@@ -13,6 +13,7 @@ import { sayAndSpeak } from "./avatar/speak.js";
 import { maybeChat } from "./chatter.js";
 import { maybeLearnProfile } from "./memory/profile-learn.js";
 import { maybeReflectOnDay } from "./memory/mood-learn.js";
+import { maybeLearnSelf } from "./memory/self-learn.js";
 import { moodBlock } from "./memory/mood.js";
 import { wokeToday } from "./wake.js";
 
@@ -83,6 +84,8 @@ export async function checkProactive(getChannel: GetChannel): Promise<void> {
     // Reads the day's conversation once, in the small hours; sends nothing.
     await maybeLearnProfile(now, channelId);
     await maybeReflectOnDay(now, channelId);
+    // Her own notes (memory/self.ts); does nothing until the owner has read the first draft.
+    await maybeLearnSelf(now, channelId);
   } finally {
     running = false;
   }
