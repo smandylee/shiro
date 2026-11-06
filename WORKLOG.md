@@ -90,6 +90,14 @@
   **되돌리기:** `cd ~/orchestrator && mv src src.bad && mv src.prev-20261103-042900 src && sudo systemctl restart shiro-orchestrator` (처음 판으로는 `035240`).
 - 서버 메모리가 1GB 대라 **서버에서 `tsc` 를 돌리면 힙이 부족해 죽는다** — 타입체크는 PC 에서 한다. 시험 중 3.8 에서도 `429`(할당량)가 10번 중 2번 나왔다 — 모델 교체만으론 안 풀린다. 위 "말 걸기 판단 실패" 와 같이 본다.
 
+### ★ 목소리 강화 — 코드 완료·시험 통과, **서버 미반영** (2026-11-06)
+
+ElevenLabs 경로(`TTS_PROVIDER=elevenlabs`)만 바뀐다. 서버는 `ELEVENLABS_MODEL=eleven_v4_turbo` 로 돌고 있었다(코드 기본값 `eleven_v4` 와 다름).
+1. **감정 태그**(`tts/elevenlabs.ts` `TAGS`): happy `[excited]`, sad `[let down, quietly]`(전 `[sorrowful]`), angry `[mad]`(전 `[frustrated]`), surprised `[startled]`(전 `[gasps]`), embarrassed `[nervous]`, **thinking `[thoughtful]`, love `[softly, content]`(새로)**. neutral 은 태그 없음. 전부 ElevenLabs v4 문서의 예시 태그에서 골랐다. 마음에 안 들면 이 표만 고치면 된다. `ELEVENLABS_EMOTION_TAGS=off` 로 전부 끔.
+2. **글자를 소리로**(`tts/perform.ts`, 디스코드에 보이는 글은 그대로): `ㅋㅋ`→`[laughs]`, `ㅎㅎ`→`[laughs softly]`, `ㅠㅠ`/`ㅜㅜ`→`[crying]`, `ㅡㅡ`→`[sighs]`, 혼자 쓴 `ㅇㅇ/ㄴㄴ/ㅇㅋ/ㄱㄱ/ㄱㅅ/ㅈㅅ/ㅊㅋ/ㅅㄱ`는 응응/노노/오케이/고고/감사/죄송/축하/수고, `^^` 삭제, `…`·긴 점은 `...`, 남은 자음·모음 글자는 삭제(이름으로 읽히므로). 줄임표는 문서상 그것만으로 느려져서 `[pause]` 는 안 붙인다. 소리 표현(`하앙` 등)은 건드리지 않았다.
+3. **줄 사이 연결**: `ReplyVoice`(`avatar/speak.ts`)가 각 줄에 바로 앞 줄을 `previous_text` 로 같이 보낸다(다음 줄은 아직 안 써졌으므로 앞 줄만). 서버에서 `eleven_v4_turbo` 가 이 필드를 오류 없이 받는 것(200)은 확인했다. **실제로 이어서 들리는지는 귀로 확인해야 한다** — 같은 요청도 매번 오디오가 달라서 파일 크기·해시로는 못 가른다. 모델이 거절(400/422)하면 한 번 경고를 남기고 그 뒤로는 안 보낸다. `ELEVENLABS_CONTEXT=off` 로 처음부터 끔.
+- 시험 `tests/voice.test.ts`(글자→태그 규칙, 태그 표, 줄이 앞 줄을 받는지), 들어 볼 샘플 `scripts/voice-samples.ts`(감정마다 옛 태그/새 태그, ㅋㅋ·ㅠㅠ·ㅇㅇ, 줄 연결 있/없음 21개, 크레딧 조금 씀). 서버에선 `/tmp/voice-try`(src 와 별도 복사본)에서 돌렸고, 이 PC 로 가져와 들어 보는 중. `/tmp/voice-try` 는 서버에 남아 있다(안 지움).
+
 ### ★ 시로의 자기 노트 (인격이 기억에서 자라게) — 11/5 18:07 서버 반영, **꺼진 채**(초안 단계 전) (2026-11-06)
 
 **배포 기록:** 서버 `src` 가 직전 배포(`4253b5b`)와 같음을 확인(서버 전용 `llm/intimacy.ts` 제외)하고, 바뀐 4개 파일 + PC 의 새 `intimacy.ts`(주인님이 고침, 불러와지는 것 확인, 내용은 git 에 없음) + `scripts/self-draft.ts` 를 올려 교체·재시작. 새 도구 선언은 올리기 전에 서버에서 3.8·3.0 두 모델에 보내 받아들여지고 `show_self` 를 부르는 것을 확인. 저널에 `logged in`·`[commands] registered: /model`·`[memory] warmed up`(649건) 확인. 이전 코드 `src.prev-20261105-180627`. **되돌리기:** `cd ~/orchestrator && mv src src.bad && mv src.prev-20261105-180627 src && sudo systemctl restart shiro-orchestrator` (이 경우 서버의 `intimacy.ts` 도 이전 판으로 돌아간다). 이 재시작이 3.8 이 한참 멈춰 있던 호출도 끊었다. 아직 안 한 것: 초안 만들기(`scripts/self-draft.ts`)와 켜기.
@@ -380,6 +388,10 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 ## 기록
 
 최신이 위.
+
+### 2026-11-06 — 목소리: 감정 태그 7개로, ㅋㅋ·ㅠㅠ 같은 글자를 소리로, 줄마다 앞 줄 전달 (코드 완료, 서버 미반영)
+
+자세한 건 위 [다음].
 
 ### 2026-11-06 — 시로의 자기 노트(취향·말버릇·둘 사이·일기)와 밤 학습, 초안 스크립트 (코드 완료, 서버 미반영, 꺼진 채로 올라감)
 

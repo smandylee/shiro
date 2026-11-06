@@ -8,9 +8,11 @@ import { synthesize as viaTypecast } from "./typecast.js";
 export async function synthesizeStream(
   text: string,
   emotion: Emotion,
-  signal: AbortSignal
+  signal: AbortSignal,
+  // The line spoken just before this one in the same reply, for voices that can carry on from it.
+  context?: { previousText?: string }
 ): Promise<AsyncGenerator<Buffer> | null> {
-  if (process.env.TTS_PROVIDER === "elevenlabs") return streamElevenLabs(text, emotion, signal);
+  if (process.env.TTS_PROVIDER === "elevenlabs") return streamElevenLabs(text, emotion, signal, context);
 
   // Typecast's endpoint here isn't streamed: hand over the whole clip as one chunk.
   const audio = await viaTypecast(text, emotion);

@@ -55,6 +55,8 @@ export class ReplyVoice {
   private running = 0;
   private waiting: (() => void)[] = [];
   private caption = "";
+  // The line added last, handed to the next one as what was said just before it.
+  private lastLine = "";
 
   constructor(
     id: string,
@@ -83,7 +85,9 @@ export class ReplyVoice {
     const slot: Slot = { chunks: [], done: false };
     this.slots.push(slot);
     this.changed.notify();
-    void this.fill(slot, line);
+    const previousText = this.lastLine;
+    this.lastLine = line;
+    void this.fill(slot, line, previousText);
   }
 
   /** No more lines are coming. Resolves once everything has been sent. */
@@ -113,11 +117,16 @@ export class ReplyVoice {
     else this.running--;
   }
 
-  private async fill(slot: Slot, line: string): Promise<void> {
+  private async fill(slot: Slot, line: string, previousText: string): Promise<void> {
     await this.acquire();
     try {
       if (this.aborted) return;
-      const audio = await this.deps.synth(line, this.emotion, this.controller.signal);
+      const audio = await this.deps.synth(
+        line,
+        this.emotion,
+        this.controller.signal,
+        previousText ? { previousText } : undefined
+      );
       if (!audio) return;
       for await (const chunk of audio) {
         if (this.aborted) return;
