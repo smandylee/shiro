@@ -90,7 +90,9 @@
   **되돌리기:** `cd ~/orchestrator && mv src src.bad && mv src.prev-20261103-042900 src && sudo systemctl restart shiro-orchestrator` (처음 판으로는 `035240`).
 - 서버 메모리가 1GB 대라 **서버에서 `tsc` 를 돌리면 힙이 부족해 죽는다** — 타입체크는 PC 에서 한다. 시험 중 3.8 에서도 `429`(할당량)가 10번 중 2번 나왔다 — 모델 교체만으론 안 풀린다. 위 "말 걸기 판단 실패" 와 같이 본다.
 
-### ★ 목소리 강화 — 코드 완료·시험 통과, **서버 미반영** (2026-11-06)
+### ★ 목소리 강화 — 11/6 05:33 서버 반영 (2026-11-06)
+
+**배포 기록:** 서버 `src` 가 직전 배포(`2d9cac7`)와 같음을 확인(서버 전용 `llm/intimacy.ts` 는 PC 와 같았음)하고 바뀐 8개 파일 교체·재시작, 저널에 `logged in`·`[commands] registered: /model`·`[memory] warmed up`(675건) 확인. 이전 코드 `src.prev-20261106-053224`. **되돌리기:** `cd ~/orchestrator && mv src src.bad && mv src.prev-20261106-053224 src && sudo systemctl restart shiro-orchestrator`. 도구 선언은 안 바뀌어서 스키마 확인은 안 했다. 아직 실제 대화로는 못 봄: 모델이 `[voice:…]`·중간 `[emotion:…]` 을 쓰는지, `previous_text` 효과가 들리는지, 로그에 `does not take previous_text` 경고가 뜨는지 확인할 것.
 
 ElevenLabs 경로(`TTS_PROVIDER=elevenlabs`)만 바뀐다. 서버는 `ELEVENLABS_MODEL=eleven_v4_turbo` 로 돌고 있었다(코드 기본값 `eleven_v4` 와 다름).
 1. **감정 태그**(`tts/elevenlabs.ts` `TAGS`): happy `[excited]`, sad `[let down, quietly]`(전 `[sorrowful]`), angry `[mad]`(전 `[frustrated]`), surprised `[startled]`(전 `[gasps]`), embarrassed `[nervous]`, **thinking `[thoughtful]`, love `[softly, content]`(새로)**. neutral 은 태그 없음. 단어는 ElevenLabs v4 문서의 예시에 있는 것이고, `let down, quietly`·`softly, content` 같은 쉼표 조합은 내가 그 단어들로 만든 것(문서에 조합 예시 방식은 있음). 문서에 없는 단어를 자연어로 쓴 건 `[warmly]`·`[tender]`·`[laughs softly]`(ㅎㅎ) — 열린 방식이라 동작은 하지만 이름대로 들리는지는 귀로 확인해야 한다. 마음에 안 들면 이 표만 고치면 된다. `ELEVENLABS_EMOTION_TAGS=off` 로 전부 끔.
