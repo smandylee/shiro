@@ -8,6 +8,8 @@ import { toPerformedText } from "../src/tts/perform.js";
 import { TAGS } from "../src/tts/elevenlabs.js";
 import { EMOTIONS } from "../src/persona.js";
 import { ReplyVoice, type VoiceDeps } from "../src/avatar/speak.js";
+import { cleanCue, readLineMarks, stripMarks } from "../src/tts/marks.js";
+import { StreamedReply } from "../src/reply.js";
 
 // 1 sounds typed as letters become tags
 const cases: [string, string][] = [
@@ -69,5 +71,57 @@ assert.equal(byLine.get("첫 줄이야."), undefined, "the first line has nothin
 assert.equal(byLine.get("둘째 줄이야."), "첫 줄이야.");
 assert.equal(byLine.get("셋째 줄이야."), "둘째 줄이야.");
 console.log("6 a line is given the one before it");
+
+// 7 cues: only short English, anything else is not a cue
+assert.equal(cleanCue("Whispering, Shy"), "whispering, shy");
+assert.equal(cleanCue("  teasing  "), "teasing");
+for (const bad of ["", "   ", "속삭이듯", "whispering] [angry", "a".repeat(41), "123", "shy!"]) assert.equal(cleanCue(bad), null, bad);
+console.log("7 cues: short English words only");
+
+// 8 reading the marks in a line
+assert.deepEqual(readLineMarks("그냥 한 줄이야."), { line: "그냥 한 줄이야." });
+assert.deepEqual(readLineMarks("[emotion:love]하앙... 가만히 있어."), { line: "하앙... 가만히 있어.", emotion: "love", cue: null });
+assert.deepEqual(readLineMarks("[emotion:love][voice:whispering, shy]하앙..."), {
+  line: "하앙...",
+  emotion: "love",
+  cue: "whispering, shy",
+});
+assert.deepEqual(readLineMarks("[voice:teasing]어머, 진짜?"), { line: "어머, 진짜?", cue: "teasing" });
+assert.deepEqual(readLineMarks("[voice:속삭이듯]응."), { line: "응.", cue: null }, "a bad cue clears the cue");
+assert.deepEqual(readLineMarks("[emotion:nonsense]응."), { line: "응." }, "an unknown feeling is removed, not obeyed");
+assert.equal(stripMarks("[emotion:love]자꾸 쳐다보면...[voice:warm] 안 놔둘 거야."), "자꾸 쳐다보면...안 놔둘 거야.");
+console.log("8 marks are read, applied by order, and removed");
+
+// 9 the feeling and cue reach the voice line by line
+const how: { line: string; emotion: string; cue?: string }[] = [];
+const deps2: VoiceDeps = {
+  synth: async (line, emotion, _s, context) => {
+    how.push({ line, emotion, cue: context?.cue });
+    return (async function* () {
+      yield Buffer.from("x");
+    })();
+  },
+  send: () => {},
+};
+const v2 = new ReplyVoice("t2", "embarrassed", deps2);
+v2.addLine("어, 아닌데...");
+v2.addLine("그래도 좋아.", { emotion: "love", cue: "whispering, shy" });
+v2.addLine("...진짜야.", { emotion: "love", cue: null });
+await v2.end();
+const h = new Map(how.map((x) => [x.line, x]));
+assert.deepEqual(h.get("어, 아닌데..."), { line: "어, 아닌데...", emotion: "embarrassed", cue: undefined });
+assert.deepEqual(h.get("그래도 좋아."), { line: "그래도 좋아.", emotion: "love", cue: "whispering, shy" });
+assert.deepEqual(h.get("...진짜야."), { line: "...진짜야.", emotion: "love", cue: undefined });
+console.log("9 each line carries its own feeling and cue");
+
+// 10 a streamed reply: marks are carried out of the text, never shown in Discord
+const shown: string[] = [];
+const streamed = new StreamedReply(async (line) => {
+  shown.push(line);
+});
+for (const piece of ["[emotion:embarrassed][voice:shy]어, 아", "닌데...\n[emotion:lo", "ve]그래도 좋아.[voice:warm]\n끝"]) streamed.push(piece);
+await streamed.finish();
+assert.deepEqual(shown, ["어, 아닌데...", "그래도 좋아.", "끝"]);
+console.log("10 the chat never shows a mark, even one split across pieces");
 
 console.log("ok");

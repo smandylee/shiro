@@ -1,4 +1,5 @@
 import type { Emotion } from "../persona.js";
+import { cleanCue } from "./marks.js";
 import { toPerformedText } from "./perform.js";
 import { toSpokenText } from "./typecast.js";
 
@@ -57,14 +58,16 @@ export async function synthesizeStream(
   text: string,
   emotion: Emotion,
   signal: AbortSignal,
-  context?: { previousText?: string }
+  context?: { previousText?: string; cue?: string }
 ): Promise<AsyncGenerator<Buffer> | null> {
   if (!elevenLabsEnabled()) return null;
 
   const spoken = toPerformedText(toSpokenText(text));
   if (!spoken) return null;
 
-  const tag = process.env.ELEVENLABS_EMOTION_TAGS === "off" ? undefined : TAGS[emotion];
+  // One direction per line: the finer cue from the reply when there is one, else the feeling's own.
+  const cue = context?.cue ? cleanCue(context.cue) : null;
+  const tag = process.env.ELEVENLABS_EMOTION_TAGS === "off" ? undefined : cue ? `[${cue}]` : TAGS[emotion];
   const previous = context?.previousText ? toPerformedText(toSpokenText(context.previousText)) : "";
 
   try {

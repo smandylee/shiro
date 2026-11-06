@@ -1,5 +1,7 @@
 import { parseEmotionTag } from "./persona.js";
 import { startReply, type ReplyVoice } from "./avatar/speak.js";
+import { readLineMarks } from "./tts/marks.js";
+import type { Emotion } from "./persona.js";
 
 // Turns the model's text, as it arrives in pieces, into what the owner sees and
 // hears: her expression the instant the emotion tag is complete, then each line
@@ -7,7 +9,6 @@ import { startReply, type ReplyVoice } from "./avatar/speak.js";
 // waiting for the whole reply.
 
 const TAG_RE = /^\s*\[emotion:([a-z]+)\]\s*/i;
-const ANY_TAG_RE = /\[emotion:[a-z]+\]\s*/gi;
 // A tag is short. Past this, an opening "[" is just text.
 const MAX_TAG_LENGTH = 30;
 
@@ -16,6 +17,10 @@ export class StreamedReply {
   private voice: ReplyVoice | null = null;
   private started = false;
   private text = "";
+  // What the voice is playing right now: the opening feeling, changed by marks later in the reply
+  // (see tts/marks.ts). Her expression on the avatar follows the opening tag only.
+  private feeling: Emotion = "neutral";
+  private cue: string | null = null;
   private bubbles: Promise<void> = Promise.resolve();
   private readonly t0 = Date.now();
 
@@ -116,6 +121,7 @@ export class StreamedReply {
 
   private start(emotion: Parameters<typeof startReply>[0]): void {
     this.started = true;
+    this.feeling = emotion;
     this.timings.pose = Date.now() - this.t0;
     this.voice = startReply(emotion, "", () => {
       this.timings.firstAudio = Date.now() - this.t0;
@@ -137,16 +143,19 @@ export class StreamedReply {
   }
 
   private emit(raw: string): void {
-    // Only the opening tag sets her expression; one that turns up later (a reply
-    // that resumed after a tool call) is dropped rather than shown.
-    const line = raw.replace(ANY_TAG_RE, "").trim();
+    // Only the opening tag sets her expression. A mark that turns up later changes how the voice
+    // says this line and the ones after it, and is never shown.
+    const marks = readLineMarks(raw);
+    if (marks.emotion) this.feeling = marks.emotion;
+    if (marks.cue !== undefined) this.cue = marks.cue;
+    const line = marks.line;
     if (!line) return;
 
     this.text = this.text ? `${this.text}\n${line}` : line;
     this.timings.firstLine ??= Date.now() - this.t0;
 
     this.voice?.setCaption(this.text);
-    this.voice?.addLine(line);
+    this.voice?.addLine(line, { emotion: this.feeling, cue: this.cue });
     this.bubbles = this.bubbles
       .then(() => this.sendLine(line))
       .catch((err) => console.error("[reply] failed to send a line:", err));

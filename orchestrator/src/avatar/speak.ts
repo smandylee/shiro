@@ -79,15 +79,18 @@ export class ReplyVoice {
     this.deps.send({ type: "caption", id: this.id, text });
   }
 
-  /** Start voicing a line now. Lines play in the order they were added. */
-  addLine(line: string): void {
+  /**
+   * Start voicing a line now. Lines play in the order they were added. `how` is what the reply's
+   * marks say about this line: a feeling other than the opening one, and a finer voice cue.
+   */
+  addLine(line: string, how?: { emotion?: Emotion; cue?: string | null }): void {
     if (this.aborted || this.closed) return;
     const slot: Slot = { chunks: [], done: false };
     this.slots.push(slot);
     this.changed.notify();
     const previousText = this.lastLine;
     this.lastLine = line;
-    void this.fill(slot, line, previousText);
+    void this.fill(slot, line, previousText, how?.emotion ?? this.emotion, how?.cue ?? undefined);
   }
 
   /** No more lines are coming. Resolves once everything has been sent. */
@@ -117,15 +120,21 @@ export class ReplyVoice {
     else this.running--;
   }
 
-  private async fill(slot: Slot, line: string, previousText: string): Promise<void> {
+  private async fill(
+    slot: Slot,
+    line: string,
+    previousText: string,
+    emotion: Emotion,
+    cue: string | undefined
+  ): Promise<void> {
     await this.acquire();
     try {
       if (this.aborted) return;
       const audio = await this.deps.synth(
         line,
-        this.emotion,
+        emotion,
         this.controller.signal,
-        previousText ? { previousText } : undefined
+        previousText || cue ? { ...(previousText ? { previousText } : {}), ...(cue ? { cue } : {}) } : undefined
       );
       if (!audio) return;
       for await (const chunk of audio) {

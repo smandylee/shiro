@@ -9,8 +9,9 @@ export async function synthesizeStream(
   text: string,
   emotion: Emotion,
   signal: AbortSignal,
-  // The line spoken just before this one in the same reply, for voices that can carry on from it.
-  context?: { previousText?: string }
+  // `previousText`: the line spoken just before this one in the same reply, for voices that can carry
+  // on from it. `cue`: a finer direction than the feeling ("whispering, shy") for voices that take one.
+  context?: { previousText?: string; cue?: string }
 ): Promise<AsyncGenerator<Buffer> | null> {
   if (process.env.TTS_PROVIDER === "elevenlabs") return streamElevenLabs(text, emotion, signal, context);
 

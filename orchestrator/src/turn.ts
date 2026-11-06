@@ -1,6 +1,7 @@
 import { chat, EmptyReplyError, type MediaPart } from "./llm/gemini.js";
 import { parseEmotionTag } from "./persona.js";
 import { looksLikeRefusal } from "./refusal.js";
+import { stripMarks } from "./tts/marks.js";
 import { StreamedReply } from "./reply.js";
 import { addTurn, getRecentHistory } from "./memory/shortterm.js";
 import { remember, recall } from "./memory/longterm.js";
@@ -283,7 +284,11 @@ export async function runTurn(input: TurnInput): Promise<void> {
   }
 
   const raw = result.text;
-  const { emotion, text } = parseEmotionTag(raw);
+  const parsed = parseEmotionTag(raw);
+  const emotion = parsed.emotion;
+  // Marks for the voice (tts/marks.ts) can sit anywhere in a reply: they are not what she said,
+  // so they stay out of the log and her memory. The history keeps the raw text, marks included.
+  const text = stripMarks(parsed.text);
   console.log(`  -> emotion=${emotion} text=${text}`);
   if (isOwner) noteOwnerTurn(emotion);
 
