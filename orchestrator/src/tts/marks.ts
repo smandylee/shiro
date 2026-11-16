@@ -60,6 +60,16 @@ export function readLineMarks(raw: string): LineMarks {
   return { line, ...(emotion ? { emotion } : {}), ...(cue !== undefined ? { cue } : {}) };
 }
 
+/**
+ * What is left of a line once the narration is taken out: *…* stage directions are for reading, not
+ * for the voice. A line with a lone "*" (a direction that was never closed) is all narration.
+ */
+export function withoutNarration(line: string): string {
+  const spoken = line.replace(/\*[^*\n]*\*/g, " ");
+  if (spoken.includes("*")) return "";
+  return spoken.replace(/\s+/g, " ").trim();
+}
+
 /** Text with every mark removed, for what is kept (memory, logs). */
 export function stripMarks(text: string): string {
   return text.replace(EMOTION_MARK, "").replace(VOICE_MARK, "").trim();

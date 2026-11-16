@@ -8,7 +8,7 @@ import { toPerformedText } from "../src/tts/perform.js";
 import { TAGS } from "../src/tts/elevenlabs.js";
 import { EMOTIONS } from "../src/persona.js";
 import { ReplyVoice, type VoiceDeps } from "../src/avatar/speak.js";
-import { cleanCue, readLineMarks, stripMarks } from "../src/tts/marks.js";
+import { cleanCue, readLineMarks, stripMarks, withoutNarration } from "../src/tts/marks.js";
 import { StreamedReply } from "../src/reply.js";
 
 // 1 sounds typed as letters become tags
@@ -123,5 +123,20 @@ for (const piece of ["[emotion:embarrassed][voice:shy]어, 아", "닌데...\n[em
 await streamed.finish();
 assert.deepEqual(shown, ["어, 아닌데...", "그래도 좋아.", "끝"]);
 console.log("10 the chat never shows a mark, even one split across pieces");
+
+// 11 narrated channel: *stage directions* are shown but never voiced
+assert.equal(withoutNarration("*창밖을 본다.*"), "");
+assert.equal(withoutNarration("*웃으며* 왔어? *손을 흔든다*"), "왔어?");
+assert.equal(withoutNarration("그냥 대사야."), "그냥 대사야.");
+assert.equal(withoutNarration("*닫지 않은 묘사"), "", "a direction that was never closed is all narration");
+assert.equal(withoutNarration("별 *하나* 별 둘"), "별 별 둘");
+const shownNarrated: string[] = [];
+const narrated = new StreamedReply(async (line) => {
+  shownNarrated.push(line);
+}, true);
+for (const piece of ["[emotion:love]*창밖을 보다가 고개를 돌린다.*\n왔어", "? 기다렸어.\n"]) narrated.push(piece);
+await narrated.finish();
+assert.deepEqual(shownNarrated, ["*창밖을 보다가 고개를 돌린다.*", "왔어? 기다렸어."], "the chat shows the narration too");
+console.log("11 narration is shown in the chat and left out of the voice");
 
 console.log("ok");

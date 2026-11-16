@@ -166,6 +166,8 @@ export type TurnInput = {
   attachments: Iterable<DiscordAttachment>;
   /** How it arrived, for the log only. */
   via?: "text" | "voice";
+  /** The channel set aside for narrated talk: she adds *stage directions*, which are shown but not voiced. */
+  narration?: boolean;
 };
 
 export async function runTurn(input: TurnInput): Promise<void> {
@@ -213,7 +215,7 @@ export async function runTurn(input: TurnInput): Promise<void> {
   // The reply is shown and voiced as the model writes it: her expression the
   // moment the emotion tag is complete, then each line as a bubble and in her
   // voice as soon as it is finished, instead of after the whole answer.
-  const reply = new StreamedReply((line) => sendAsChatBubbles(channel, line));
+  const reply = new StreamedReply((line) => sendAsChatBubbles(channel, line), input.narration === true);
   // Nothing she says to spoken words is shown until a person is confirmed to have spoken.
   if (voice) reply.hold(voice.speech);
 
@@ -226,6 +228,7 @@ export async function runTurn(input: TurnInput): Promise<void> {
       senderId: authorId,
       contactName: contact?.name,
       viaVoice: Boolean(voice),
+      narration: input.narration === true,
       toolGate: voice?.speech,
       onText: (delta) => reply.push(delta),
     });

@@ -1,6 +1,6 @@
 import { parseEmotionTag } from "./persona.js";
 import { startReply, type ReplyVoice } from "./avatar/speak.js";
-import { readLineMarks } from "./tts/marks.js";
+import { readLineMarks, withoutNarration } from "./tts/marks.js";
 import type { Emotion } from "./persona.js";
 
 // Turns the model's text, as it arrives in pieces, into what the owner sees and
@@ -32,7 +32,12 @@ export class StreamedReply {
   };
 
   /** `sendLine` posts one line to the owner's chat (the typing pause is its business). */
-  constructor(private readonly sendLine: (line: string) => Promise<void>) {}
+  constructor(
+    private readonly sendLine: (line: string) => Promise<void>,
+    /** In a narrated channel the *stage directions* are shown but not voiced (and not put in the caption). */
+    private readonly narrated = false
+  ) {}
+  private spokenText = "";
 
   // While waiting for permission (see hold), what the model writes is kept back.
   private held: string[] | null = null;
@@ -154,8 +159,12 @@ export class StreamedReply {
     this.text = this.text ? `${this.text}\n${line}` : line;
     this.timings.firstLine ??= Date.now() - this.t0;
 
-    this.voice?.setCaption(this.text);
-    this.voice?.addLine(line, { emotion: this.feeling, cue: this.cue });
+    const heard = this.narrated ? withoutNarration(line) : line;
+    if (heard) {
+      this.spokenText = this.spokenText ? `${this.spokenText}\n${heard}` : heard;
+      this.voice?.setCaption(this.narrated ? this.spokenText : this.text);
+      this.voice?.addLine(heard, { emotion: this.feeling, cue: this.cue });
+    }
     this.bubbles = this.bubbles
       .then(() => this.sendLine(line))
       .catch((err) => console.error("[reply] failed to send a line:", err));

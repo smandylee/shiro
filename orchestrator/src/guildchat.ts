@@ -473,7 +473,19 @@ async function noteMode(guild: Guild, ownerId: string, mode: "full" | "group"): 
  * the same turn, the same tools, memory and voice. The one thing she still has to
  * work out is whether the owner is talking to her or to another bot in the room.
  */
+/**
+ * The channel the owner set aside for narrated talk (SHIRO_NARRATION_CHANNEL_ID in the server's env,
+ * not in the repository). Only in a server that is just the owner and bots, like the rest of the owner's room.
+ */
+function isNarrationChannel(channelId: string): boolean {
+  const id = process.env.SHIRO_NARRATION_CHANNEL_ID?.trim();
+  return Boolean(id) && id === channelId;
+}
+
 async function ownerRoom(channel: GuildTextBasedChannel, batch: Message[], directed: boolean, nameCalled: boolean): Promise<void> {
+  // Everything the owner writes in the narration channel is meant for her: no checking who it is for.
+  const narration = isNarrationChannel(channel.id);
+  if (narration) directed = true;
   const ownerId = process.env.DISCORD_OWNER_USER_ID ?? "";
   const myId = channel.client.user?.id ?? "";
   const label = `${channel.guild.name}#${channel.name}`;
@@ -529,6 +541,7 @@ async function ownerRoom(channel: GuildTextBasedChannel, batch: Message[], direc
     authorName: mine[0].author.tag,
     content,
     attachments,
+    narration,
   });
   stateFor(channel.id).lastSpokeAt = Date.now();
 }
@@ -590,8 +603,10 @@ export async function handleGuildMessage(message: Message): Promise<void> {
   if (solo ? message.author.id !== ownerId : !isPublicTextChannel(channel)) return;
 
   const myId = message.client.user?.id;
+  // In the narration channel (owner's own server only) every message is for her, so it gets the short wait.
   const directed =
-    Boolean(myId) && (message.mentions.users.has(myId!) || message.mentions.repliedUser?.id === myId);
+    (solo && isNarrationChannel(channel.id)) ||
+    (Boolean(myId) && (message.mentions.users.has(myId!) || message.mentions.repliedUser?.id === myId));
   const nameCalled = !directed && message.content.includes("시로");
 
   const state = stateFor(channel.id);
