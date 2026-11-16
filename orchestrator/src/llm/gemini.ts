@@ -1092,7 +1092,16 @@ export class EmptyReplyError extends Error {
 export async function chat(history: ChatTurn[], userMessage: string, opts: ChatOptions): Promise<ChatResult> {
   const { memoryContext, sessionKey, images, isOwner, senderId, contactName, onText } = opts;
 
-  const userParts: Part[] = [{ text: userMessage }];
+  // The narrated room asks again on every message (not stored in the history): the earlier turns
+  // there are one-line chat, and a long system block alone loses to the pattern of the turns.
+  const narrated = Boolean(opts.narration && isOwner);
+  const userParts: Part[] = [
+    {
+      text: narrated
+        ? `${userMessage}\n\n(나레이션 대화방이야. [emotion:태그] 다음에 묘사 문단으로 시작하고, 시로의 대사는 "큰따옴표" 안에 넣어서 소설처럼 써. 대사만 한 줄로 답하지 마.)`
+        : userMessage,
+    },
+  ];
   for (const img of images ?? []) {
     userParts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
   }
@@ -1147,18 +1156,20 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
       `여덟 가지로 담기 어려운 섬세한 느낌이 있으면 [emotion:…] 바로 뒤에 [voice:영어 단어 한두 개]를 붙일 수 있다 ` +
       `(예: [voice:whispering, shy], [voice:teasing], [voice:sulking], [voice:warm]). 영어 소문자와 쉼표만, 40자 이내, 한 줄에 하나. ` +
       `평소 답에는 쓰지 않고 느낌이 바뀔 때만 쓴다. 표시에 대해 말하거나 설명하지 않는다.`;
+    systemInstruction += moodBlock();
+    systemInstruction += OWNER_INTIMACY;
+    // Last, so nothing after it dilutes it: the usual "short, one-line chat" habit would otherwise win.
     if (opts.narration) {
       systemInstruction +=
-        `\n\n[나레이션 대화방 — 이 방에서만] 평소와 같은 시로로, 같은 기억과 같은 마음으로 대화하되, 이 방의 답은 소설처럼 쓴다. ` +
-        `상황, 몸짓, 표정, 시선, 소리, 공기, 분위기를 묘사하는 문장이 답의 중심이고, 시로의 대사는 그 사이사이에 "큰따옴표"로 넣는다. ` +
+        `\n\n[나레이션 대화방 — 이 방에서만, 위의 말투 습관보다 우선한다] 평소와 같은 시로로, 같은 기억과 같은 마음으로 대화하되, 이 방의 모든 답은 소설처럼 쓴다. ` +
+        `아주 짧은 인사나 한마디에도 예외 없이, 평소처럼 대사만 한 줄 말하지 않는다. 맨 앞의 [emotion:태그]는 평소대로 쓰고, 그 다음에 ` +
+        `상황, 몸짓, 표정, 시선, 소리, 공기, 분위기를 묘사하는 문장으로 시작한다. 시로의 대사는 그 사이나 뒤에 "큰따옴표"로 넣는다. 묘사가 답의 절반 이상이어야 한다. ` +
         `묘사는 시로를 3인칭으로 쓰고, 소설 문체로 자연스럽게 쓴다 (시제와 문단 길이는 장면에 맞게). 문단 사이는 줄을 바꾼다. ` +
-        `평소 답은 짧게 하라는 규칙이 있어도 이 방에서는 묘사 때문에 길어져도 된다. 가벼운 한마디에는 짧게, 장면이 있을 때는 길게 쓴다. ` +
+        `짧은 말에는 묘사 한두 문단에 대사 한두 개, 장면이 있으면 더 길게 쓴다. 이 방의 지난 대화가 대사 한 줄뿐이어도 그 모양을 따라 하지 않는다. ` +
         `대사는 큰따옴표 안에만 쓰고, 소리로 전해야 할 말은 꼭 대사에 넣는다. 큰따옴표 밖은 읽히지 않는다. ` +
         `주인님이 한 말, 행동, 결정은 대신 정해 쓰지 않는다 (시로 자신과 주변 모습, 소리, 분위기는 써도 된다). ` +
         `묘사도 평소 규칙과 수위를 그대로 지킨다. 형식에 대해 설명하거나 이 방의 설정을 말하지 않는다.`;
     }
-    systemInstruction += moodBlock();
-    systemInstruction += OWNER_INTIMACY;
   }
   if (!isOwner) {
     systemInstruction += contactName
