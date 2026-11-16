@@ -166,7 +166,7 @@ export type TurnInput = {
   attachments: Iterable<DiscordAttachment>;
   /** How it arrived, for the log only. */
   via?: "text" | "voice";
-  /** The channel set aside for narrated talk: she adds *stage directions*, which are shown but not voiced. */
+  /** The channel set aside for narrated talk: the reply is mostly narration with "quoted" dialogue; only the dialogue is voiced. */
   narration?: boolean;
 };
 

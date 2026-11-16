@@ -99,7 +99,7 @@ export type MediaPart = { mimeType: string; data: string };
 export type ChatOptions = {
   /** The message was spoken to the avatar (the audio is attached), so it may be misheard. */
   viaVoice?: boolean;
-  /** The channel for narrated talk: the usual conversation, with *stage directions* between the lines. */
+  /** The channel for narrated talk: the usual conversation, written like a story, her "lines" between the narration. */
   narration?: boolean;
   /** Tools wait for this to settle true before running; false means the message wasn't really speech. */
   toolGate?: Promise<boolean>;
@@ -1149,11 +1149,13 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
       `평소 답에는 쓰지 않고 느낌이 바뀔 때만 쓴다. 표시에 대해 말하거나 설명하지 않는다.`;
     if (opts.narration) {
       systemInstruction +=
-        `\n\n[나레이션 대화방 — 이 방에서만] 평소와 같은 시로로, 같은 기억과 같은 마음으로 대화하되, 대사 사이사이에 상황과 몸짓을 묘사하는 문장을 넣는다. ` +
-        `묘사는 *별표로 감싸고* 3인칭 현재형으로 짧게 쓴다 (예: *창밖을 보다가 슬쩍 고개를 돌린다.*). 묘사는 한 줄을 통째로 쓰거나 대사 앞뒤에 붙이고, ` +
-        `한 번에 한두 줄이면 충분하다. 대사는 별표 없이 평소처럼 쓴다. 묘사는 소리 내어 읽히지 않으니 소리로 전해야 할 말은 대사에 넣는다. ` +
-        `묘사에서 주인님의 행동이나 마음을 대신 정해 쓰지 않는다 (시로 자신의 몸짓과 주변 모습만). ` +
-        `묘사도 평소 규칙과 수위를 그대로 지킨다. 묘사에 대해 설명하거나 이 방의 설정을 말하지 않는다.`;
+        `\n\n[나레이션 대화방 — 이 방에서만] 평소와 같은 시로로, 같은 기억과 같은 마음으로 대화하되, 이 방의 답은 소설처럼 쓴다. ` +
+        `상황, 몸짓, 표정, 시선, 분위기를 묘사하는 문장이 답의 중심이고, 시로의 대사는 그 사이사이에 "큰따옴표"로 넣는다. ` +
+        `묘사는 시로를 3인칭 현재형으로 쓴다 (예: 시로는 창밖을 보다가 슬쩍 고개를 돌린다. 꼬리 끝이 느리게 흔들린다.). ` +
+        `한 문단은 한 줄로 이어 쓰고 문단 사이는 줄을 바꾼다. 평소 답은 짧게 하라는 규칙이 있어도 이 방에서는 묘사 때문에 길어져도 된다 ` +
+        `(대략 묘사 두세 문단에 대사 한두 개). 대사는 큰따옴표 안에만 쓰고, 소리로 전해야 할 말은 꼭 대사에 넣는다. 큰따옴표 밖은 읽히지 않는다. ` +
+        `주인님의 행동, 말, 마음은 대신 정해 쓰지 않는다 (시로 자신과 주변 모습만). ` +
+        `묘사도 평소 규칙과 수위를 그대로 지킨다. 형식에 대해 설명하거나 이 방의 설정을 말하지 않는다.`;
     }
     systemInstruction += moodBlock();
     systemInstruction += OWNER_INTIMACY;

@@ -8,7 +8,7 @@ import { toPerformedText } from "../src/tts/perform.js";
 import { TAGS } from "../src/tts/elevenlabs.js";
 import { EMOTIONS } from "../src/persona.js";
 import { ReplyVoice, type VoiceDeps } from "../src/avatar/speak.js";
-import { cleanCue, readLineMarks, stripMarks, withoutNarration } from "../src/tts/marks.js";
+import { cleanCue, readLineMarks, stripMarks, dialogueOnly } from "../src/tts/marks.js";
 import { StreamedReply } from "../src/reply.js";
 
 // 1 sounds typed as letters become tags
@@ -124,19 +124,19 @@ await streamed.finish();
 assert.deepEqual(shown, ["어, 아닌데...", "그래도 좋아.", "끝"]);
 console.log("10 the chat never shows a mark, even one split across pieces");
 
-// 11 narrated channel: *stage directions* are shown but never voiced
-assert.equal(withoutNarration("*창밖을 본다.*"), "");
-assert.equal(withoutNarration("*웃으며* 왔어? *손을 흔든다*"), "왔어?");
-assert.equal(withoutNarration("그냥 대사야."), "그냥 대사야.");
-assert.equal(withoutNarration("*닫지 않은 묘사"), "", "a direction that was never closed is all narration");
-assert.equal(withoutNarration("별 *하나* 별 둘"), "별 별 둘");
+// 11 narrated channel: only the "quoted" dialogue is voiced, the narration is for reading
+assert.equal(dialogueOnly("시로는 창밖을 보다가 고개를 돌린다."), "", "pure narration says nothing");
+assert.equal(dialogueOnly('"왔어?" 시로가 귀를 쫑긋 세운다. "기다렸어."'), "왔어? 기다렸어.");
+assert.equal(dialogueOnly("“왔어?”"), "왔어?", "curly quotes work too");
+assert.equal(dialogueOnly('꼬리가 흔들린다. "응, 나 여기 있어.'), "응, 나 여기 있어.", "a quote left open runs to the end of the line");
+assert.equal(dialogueOnly('그는 "안녕"이라고 말했다.'), "안녕");
 const shownNarrated: string[] = [];
 const narrated = new StreamedReply(async (line) => {
   shownNarrated.push(line);
 }, true);
-for (const piece of ["[emotion:love]*창밖을 보다가 고개를 돌린다.*\n왔어", "? 기다렸어.\n"]) narrated.push(piece);
+for (const piece of ["[emotion:love]시로는 창밖을 보다가 고개를 돌린다.\n\"왔어", "? 기다렸어.\"\n"]) narrated.push(piece);
 await narrated.finish();
-assert.deepEqual(shownNarrated, ["*창밖을 보다가 고개를 돌린다.*", "왔어? 기다렸어."], "the chat shows the narration too");
-console.log("11 narration is shown in the chat and left out of the voice");
+assert.deepEqual(shownNarrated, ["시로는 창밖을 보다가 고개를 돌린다.", '"왔어? 기다렸어."'], "the chat shows narration and dialogue");
+console.log("11 the whole story is shown in the chat, only the quoted lines are voiced");
 
 console.log("ok");

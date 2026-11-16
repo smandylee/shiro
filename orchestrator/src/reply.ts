@@ -1,6 +1,6 @@
 import { parseEmotionTag } from "./persona.js";
 import { startReply, type ReplyVoice } from "./avatar/speak.js";
-import { readLineMarks, withoutNarration } from "./tts/marks.js";
+import { readLineMarks, dialogueOnly } from "./tts/marks.js";
 import type { Emotion } from "./persona.js";
 
 // Turns the model's text, as it arrives in pieces, into what the owner sees and
@@ -34,7 +34,7 @@ export class StreamedReply {
   /** `sendLine` posts one line to the owner's chat (the typing pause is its business). */
   constructor(
     private readonly sendLine: (line: string) => Promise<void>,
-    /** In a narrated channel the *stage directions* are shown but not voiced (and not put in the caption). */
+    /** In a narrated channel only the "quoted" dialogue is voiced (and captioned); the narration is for reading. */
     private readonly narrated = false
   ) {}
   private spokenText = "";
@@ -159,7 +159,7 @@ export class StreamedReply {
     this.text = this.text ? `${this.text}\n${line}` : line;
     this.timings.firstLine ??= Date.now() - this.t0;
 
-    const heard = this.narrated ? withoutNarration(line) : line;
+    const heard = this.narrated ? dialogueOnly(line) : line;
     if (heard) {
       this.spokenText = this.spokenText ? `${this.spokenText}\n${heard}` : heard;
       this.voice?.setCaption(this.narrated ? this.spokenText : this.text);

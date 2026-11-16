@@ -61,13 +61,25 @@ export function readLineMarks(raw: string): LineMarks {
 }
 
 /**
- * What is left of a line once the narration is taken out: *…* stage directions are for reading, not
- * for the voice. A line with a lone "*" (a direction that was never closed) is all narration.
+ * What the voice says of a line in the narrated channel: only what is inside "double quotes". The rest
+ * of the line is narration, for reading. A quote that was never closed runs to the end of the line
+ * (better said than lost); a line with no quote says nothing.
  */
-export function withoutNarration(line: string): string {
-  const spoken = line.replace(/\*[^*\n]*\*/g, " ");
-  if (spoken.includes("*")) return "";
-  return spoken.replace(/\s+/g, " ").trim();
+export function dialogueOnly(line: string): string {
+  const parts: string[] = [];
+  const pair = /["“]([^"“”\n]*)["”]/g;
+  let end = 0;
+  for (let m = pair.exec(line); m; m = pair.exec(line)) {
+    parts.push(m[1]);
+    end = pair.lastIndex;
+  }
+  const tail = line.slice(end);
+  const open = tail.search(/["“]/);
+  if (open !== -1) parts.push(tail.slice(open + 1));
+  return parts
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(" ");
 }
 
 /** Text with every mark removed, for what is kept (memory, logs). */
