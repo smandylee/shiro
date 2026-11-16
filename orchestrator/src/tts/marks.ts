@@ -82,6 +82,14 @@ export function dialogueOnly(line: string): string {
     .join(" ");
 }
 
+/**
+ * How a line of the narrated channel is shown in Discord: a line with no quoted dialogue is narration and
+ * goes in Discord's small grey "subtext" (`-# `), which is the one grey it offers. Only the display changes.
+ */
+export function showNarrationSmall(line: string): string {
+  return dialogueOnly(line) === "" ? `-# ${line}` : line;
+}
+
 /** Text with every mark removed, for what is kept (memory, logs). */
 export function stripMarks(text: string): string {
   return text.replace(EMOTION_MARK, "").replace(VOICE_MARK, "").trim();

@@ -8,7 +8,7 @@ import { toPerformedText } from "../src/tts/perform.js";
 import { TAGS } from "../src/tts/elevenlabs.js";
 import { EMOTIONS } from "../src/persona.js";
 import { ReplyVoice, type VoiceDeps } from "../src/avatar/speak.js";
-import { cleanCue, readLineMarks, stripMarks, dialogueOnly } from "../src/tts/marks.js";
+import { cleanCue, readLineMarks, stripMarks, dialogueOnly, showNarrationSmall } from "../src/tts/marks.js";
 import { StreamedReply } from "../src/reply.js";
 
 // 1 sounds typed as letters become tags
@@ -139,5 +139,11 @@ for (const piece of ["[emotion:love]시로는 창밖을 보다가 고개를 돌�
 await narrated.finish();
 assert.deepEqual(shownNarrated, ["시로는 창밖을 보다가 고개를 돌린다.", '"왔어? 기다렸어."'], "the chat shows narration and dialogue");
 console.log("11 the whole story is shown in the chat, only the quoted lines are voiced");
+
+// 12 in Discord, narration is small grey subtext; a line with dialogue is left as it is
+assert.equal(showNarrationSmall("시로는 창밖을 보다가 고개를 돌렸다."), "-# 시로는 창밖을 보다가 고개를 돌렸다.");
+assert.equal(showNarrationSmall('"왔어? 기다렸어."'), '"왔어? 기다렸어."');
+assert.equal(showNarrationSmall('시로가 웃었다. "왔어?"'), '시로가 웃었다. "왔어?"', "a line with both stays normal");
+console.log("12 narration lines are shown as small grey subtext, dialogue lines as they are");
 
 console.log("ok");

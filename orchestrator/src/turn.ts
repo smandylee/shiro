@@ -1,7 +1,7 @@
 import { chat, EmptyReplyError, type MediaPart } from "./llm/gemini.js";
 import { parseEmotionTag } from "./persona.js";
 import { looksLikeRefusal } from "./refusal.js";
-import { stripMarks } from "./tts/marks.js";
+import { stripMarks, showNarrationSmall } from "./tts/marks.js";
 import { StreamedReply } from "./reply.js";
 import { addTurn, getRecentHistory } from "./memory/shortterm.js";
 import { remember, recall } from "./memory/longterm.js";
@@ -111,22 +111,26 @@ async function fetchAttachments(attachments: Iterable<DiscordAttachment>): Promi
 // otherwise throw and leave the user with no reply at all.
 const DISCORD_MAX_MESSAGE_LENGTH = 2000;
 
-function splitToLimit(line: string): string[] {
-  if (line.length <= DISCORD_MAX_MESSAGE_LENGTH) return [line];
+function splitToLimit(line: string, limit = DISCORD_MAX_MESSAGE_LENGTH): string[] {
+  if (line.length <= limit) return [line];
   const parts: string[] = [];
-  for (let i = 0; i < line.length; i += DISCORD_MAX_MESSAGE_LENGTH) {
-    parts.push(line.slice(i, i + DISCORD_MAX_MESSAGE_LENGTH));
+  for (let i = 0; i < line.length; i += limit) {
+    parts.push(line.slice(i, i + limit));
   }
   return parts;
 }
 
-async function sendAsChatBubbles(channel: TurnChannel, text: string) {
+async function sendAsChatBubbles(channel: TurnChannel, text: string, narrated = false) {
   const lines = text
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-  const bubbles = (lines.length > 0 ? lines : [text]).flatMap(splitToLimit);
+  // In the narrated channel the narration is shown small and grey. Done per piece, after splitting,
+  // so a long paragraph cut in two keeps the style on both halves (the prefix counts toward the limit).
+  const bubbles = (lines.length > 0 ? lines : [text]).flatMap((line) =>
+    narrated ? splitToLimit(line, DISCORD_MAX_MESSAGE_LENGTH - 3).map(showNarrationSmall) : splitToLimit(line)
+  );
 
   for (const line of bubbles) {
     await channel.sendTyping();
@@ -215,7 +219,7 @@ export async function runTurn(input: TurnInput): Promise<void> {
   // The reply is shown and voiced as the model writes it: her expression the
   // moment the emotion tag is complete, then each line as a bubble and in her
   // voice as soon as it is finished, instead of after the whole answer.
-  const reply = new StreamedReply((line) => sendAsChatBubbles(channel, line), input.narration === true);
+  const reply = new StreamedReply((line) => sendAsChatBubbles(channel, line, input.narration === true), input.narration === true);
   // Nothing she says to spoken words is shown until a person is confirmed to have spoken.
   if (voice) reply.hold(voice.speech);
 
