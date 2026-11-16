@@ -128,6 +128,7 @@ console.log("10 the chat never shows a mark, even one split across pieces");
 assert.equal(dialogueOnly("시로는 창밖을 보다가 고개를 돌린다."), "", "pure narration says nothing");
 assert.equal(dialogueOnly('"왔어?" 시로가 귀를 쫑긋 세운다. "기다렸어."'), "왔어? 기다렸어.");
 assert.equal(dialogueOnly("“왔어?”"), "왔어?", "curly quotes work too");
+assert.equal(dialogueOnly('**"나야. 문 열어."**'), "나야. 문 열어.", "bold quotes: the asterisks are not said");
 assert.equal(dialogueOnly('꼬리가 흔들린다. "응, 나 여기 있어.'), "응, 나 여기 있어.", "a quote left open runs to the end of the line");
 assert.equal(dialogueOnly('그는 "안녕"이라고 말했다.'), "안녕");
 const shownNarrated: string[] = [];
