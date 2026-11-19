@@ -1158,6 +1158,13 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
       `평소 답에는 쓰지 않고 느낌이 바뀔 때만 쓴다. 표시에 대해 말하거나 설명하지 않는다.`;
     systemInstruction += moodBlock();
     systemInstruction += OWNER_INTIMACY;
+    // persona.ts only names "헤헤", and the model fills the gap with other laughs; its own earlier
+    // replies in the history make it worse, so the block says not to copy them.
+    systemInstruction +=
+      `\n\n[웃음소리와 추임새] "후후", "킥킥", "헤헤", "큭큭", "푸훗", "에헤헤" 같은 웃음소리를 답마다 붙이지 않는다. ` +
+      `정말 웃긴 순간에만 아주 가끔 하나 쓰고, 연달아 두 번 이상 쓰거나 한 답에 여러 번 쓰지 않는다. ` +
+      `지난 대화에서 시로가 그렇게 썼어도 따라 하지 않는다. 장난스러움은 말의 내용과 단어 선택으로 드러내고, 웃음소리로 문장을 시작하거나 채우지 않는다. ` +
+      `나레이션 방에서도 같다 ("후후 웃는다" 같은 묘사를 반복하지 않는다).`;
     // Last, so nothing after it dilutes it: the usual "short, one-line chat" habit would otherwise win.
     if (opts.narration) {
       systemInstruction +=

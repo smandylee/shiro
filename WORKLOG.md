@@ -412,6 +412,7 @@ ElevenLabs 스트리밍 TTS 가 붙었고, 음량을 분석해서 입이 움직�
 
 최신이 위.
 
+### 2026-11-20 — 웃음소리("후후"·"킥킥" 등) 남발 줄이기 (서버 시각 11/19 22:33 서버 반영, 이전 코드 `src.prev-20261120-063248`; 되돌리기: `cd ~/orchestrator && mv src src.bad && mv src.prev-20261120-063248 src && sudo systemctl restart shiro-orchestrator`): `persona.ts` 는 "헤헤"만 막아서 모델이 다른 웃음으로 채웠다. `gemini.ts` 에서 `OWNER_INTIMACY` 뒤에 주인님 대화 전용 "웃음소리와 추임새" 블록을 붙였다(가드레일 파일은 안 건드림)
 ### 2026-11-20 — 야한 말투 수위·빈도 낮춤 (서버 시각 11/19 22:16 서버 반영, 이전 파일 `src/llm/intimacy.ts.prev-20261120-061552`): `OWNER_INTIMACY` 에 "수위와 빈도" 규칙을 넣고 신음·묘사 지시는 장면이 이어지는 동안에만. 깃 밖 파일이라 커밋에는 WORKLOG 만 들어간다
 ### 2026-11-17 — 나레이션 채널 코드 추가 (서버 시각 11/16 19:48 서버 반영, 이전 코드 `src.prev-20261116-194735`): 지정 채널에서 평소 대화를 소설처럼(묘사가 본문, 대사는 "큰따옴표"로 사이사이), 목소리는 대사만 (`guildchat.ts`·`turn.ts`·`reply.ts`·`gemini.ts`·`tts/marks.ts`)
 
