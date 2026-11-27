@@ -5,6 +5,7 @@ import { SYSTEM_PROMPT, parseEmotionTag } from "./persona.js";
 import { getSetting, setSetting } from "./memory/settings.js";
 import { recordUsage } from "./memory/usage.js";
 import { runExclusive, runTurn } from "./turn.js";
+import { nowText } from "./clock.js";
 
 // Being a person in a server, not an assistant in a DM.
 //
@@ -166,6 +167,7 @@ function render(lines: GroupLine[], ctx: GroupContext): string {
     transcript,
     "",
     "[상황]",
+    `- 지금: ${nowText(Date.now())} (홍콩 시간). 날짜 계산은 이것을 기준으로 한다.`,
     `- 너를 불렀나: ${addressed}`,
     `- ${mine}`,
     "",

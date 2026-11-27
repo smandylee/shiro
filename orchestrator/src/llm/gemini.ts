@@ -58,6 +58,7 @@ import {
 } from "../memory/profile.js";
 import { moodBlock } from "../memory/mood.js";
 import { openItemsBlock } from "../open-items.js";
+import { nowText } from "../clock.js";
 import {
   MAX_NOTES,
   addNote,
@@ -1106,6 +1107,9 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
   for (const img of images ?? []) {
     userParts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
   }
+  // At the end of the message, not in the system prompt: a prompt that changes every minute
+  // would stop Gemini reusing the cached prefix.
+  userParts.push({ text: `(지금: ${nowText(Date.now())})` });
 
   const contents: Content[] = [
     ...history.map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] })),
@@ -1113,6 +1117,10 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
   ];
 
   let systemInstruction = SYSTEM_PROMPT;
+  systemInstruction +=
+    `\n\n[날짜와 시각] 메시지 맨 끝의 "(지금: …)"이 현재 날짜와 시각이다 (홍콩 시간). "오늘", "내일", "어제", "이번 주 금요일", "다음 주" 같은 말은 반드시 이것을 기준으로 계산하고, ` +
+    `일정이나 할 일을 만들 때도 이 날짜에서 센다. 대화 기록 중 "[11월 26일 (목) 오후 11:10]" 같은 표시는 그 말을 한 시각이다: ` +
+    `예전에 한 "내일"은 그 시각 기준의 내일이다. 이 표시들은 시스템이 붙인 것이니 답에 따라 쓰지 않고, 묻지 않으면 시각을 굳이 말하지 않는다.`;
   if (memoryContext) {
     systemInstruction += `\n\n[예전 기억 - 참고만 하고 언급은 자연스럽게]\n${memoryContext}`;
   }

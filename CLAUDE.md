@@ -41,6 +41,7 @@ orchestrator/   TS, ESM, tsx로 실행. VM(홍콩 Lightsail)에서 systemd로 24
   src/proactive.ts    아침 브리핑·할 일 알림, 새벽 학습(프로필·기분)을 부르는 틱
   src/wake.ts         주인님의 하루가 시작된 순간 감지 (기기 연결·첫 메시지, 4시간+ 부재 뒤. 주인님은 항상 자리비움이라 상태 글자는 안 본다). 규칙은 wake-core.ts
   src/open-items.ts   열린 할 일·Canvas 마감을 주인님 대화에 붙인다 (있을 때만) → "냈어" 한마디로 닫힌다
+  src/clock.ts        지금 날짜·시각 문구, 대화 기록의 날짜 경계 표시 (모든 대화 끝에 "(지금: …)"을 붙인다)
   src/voice.ts        음성 받아쓰기 (Gemini)
   src/memory/         SQLite(단기·설정·연락처·할일·사용량·프로필·기분·궁금증) + 장기기억(벡터도 SQLite, `SHIRO_MEMORY_STORE`; Pinecone은 선택·미러)
     mood.ts           기분과 "남은 마음" (계산·문구는 mood-core.ts, 새벽 회고는 mood-learn.ts)
@@ -110,6 +111,8 @@ orchestrator 로직은 모델·DB를 가짜로 바꿔 단위로 시험하고, �
   비교가 안 되니 다시 임베딩해야 한다. DB에 쓰는 스크립트는 **`ubuntu`로** 돌린다 (root로 돌리면 파일 소유가 바뀐다).
 - **`SHIRO_PRESENCE=1`은 개발자 포털에서 Presence Intent를 켠 뒤에만 넣는다.** 안 켠 채로 넣으면
   디스코드가 로그인을 거부해서 시로가 아예 안 켜진다. 접속 기기는 봇과 같은 서버에 있어야 보인다.
+- **지금 시각은 메시지 끝에 붙인다** (`clock.ts`의 `nowText`). 시스템 프롬프트 앞쪽에 넣으면 매분 바뀌어 Gemini의
+  캐시가 깨진다. 예전엔 대화에 날짜가 아예 없어서 "내일"을 틀리고, 날짜를 알아내려 웹 검색까지 했다 (WORKLOG 11/27).
 - **응답이 갑자기 몇 분씩 느려지면 서비스부터 재시작한다.** 서버·네트워크·모델은 정상이고
   돌던 프로세스만 느린 일이 있었다 (WORKLOG 10/19).
 - **이 맥북(macOS 13.0)에서는 `better-sqlite3`가 단독으로도 segfault**라서 orchestrator를

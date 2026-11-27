@@ -3,7 +3,8 @@ import { parseEmotionTag } from "./persona.js";
 import { looksLikeRefusal } from "./refusal.js";
 import { stripMarks, showNarrationSmall } from "./tts/marks.js";
 import { StreamedReply } from "./reply.js";
-import { addTurn, getRecentHistory } from "./memory/shortterm.js";
+import { addTurn, getRecentTurnsWithTime } from "./memory/shortterm.js";
+import { markDays } from "./clock.js";
 import { remember, recall } from "./memory/longterm.js";
 import { getContact } from "./memory/contacts.js";
 import { noteOwnerTurn } from "./memory/mood.js";
@@ -176,7 +177,7 @@ export type TurnInput = {
 
 export async function runTurn(input: TurnInput): Promise<void> {
   const { channel, channelId, isOwner, authorId, authorName, content } = input;
-  const history = getRecentHistory(channelId, HISTORY_LIMIT);
+  const history = markDays(getRecentTurnsWithTime(channelId, HISTORY_LIMIT));
 
   console.log(`[DM${isOwner ? "" : " guest"}${input.via === "voice" ? " voice" : ""}] ${authorName}: ${content}`);
 
