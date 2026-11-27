@@ -1,0 +1,87 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Budget.dc.html": {
+      "expand": "fill",
+      "h": 1160,
+      "title": "PC · 가계부",
+      "w": 1440,
+      "x": 4560,
+      "y": 0
+    },
+    "Calendar.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "PC · 캘린더",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "title": "PC · 오늘",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "PhoneBudget.dc.html": {
+      "h": 844,
+      "title": "휴대폰 · 가계부",
+      "w": 390,
+      "x": 940,
+      "y": 1240
+    },
+    "PhoneCalendar.dc.html": {
+      "h": 844,
+      "title": "휴대폰 · 캘린더",
+      "w": 390,
+      "x": 1410,
+      "y": 1240
+    },
+    "PhoneShiro.dc.html": {
+      "h": 844,
+      "title": "휴대폰 · 시로",
+      "w": 390,
+      "x": 470,
+      "y": 1240
+    },
+    "PhoneToday.dc.html": {
+      "h": 844,
+      "title": "휴대폰 · 오늘",
+      "w": 390,
+      "x": 0,
+      "y": 1240
+    },
+    "ShiroChat.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "PC · 시로와 대화",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-27T04:30:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {},
+  "order": [
+    "Main.dc.html",
+    "Calendar.dc.html",
+    "ShiroChat.dc.html",
+    "Budget.dc.html",
+    "PhoneToday.dc.html",
+    "PhoneShiro.dc.html",
+    "PhoneBudget.dc.html",
+    "PhoneCalendar.dc.html"
+  ],
+  "pages": [],
+  "title": "시로 홈"
+}

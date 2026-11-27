@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>시로 홈 · 가계부 (휴대폰)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1F7FB8}a:hover{color:#165E89}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F4F7; font-family: 'IBM Plex Sans KR', system-ui, sans-serif; color: #17181C; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+  <div style="flex: 1; overflow: hidden; padding: 16px 16px 0; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <a href="PhoneToday.dc.html" aria-label="뒤로" style="width: 44px; height: 44px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E4E6EB; color: #17181C; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+      </a>
+      <div style="display: flex; align-items: center; gap: 4px">
+        <button type="button" aria-label="이전 달" style="width: 44px; height: 44px; border: 0; background: transparent; color: #4A4E57; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+        <span style="font-size: 17px; font-weight: 700">2026년 11월</span>
+        <button type="button" aria-label="다음 달" style="width: 44px; height: 44px; border: 0; background: transparent; color: #4A4E57; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></button>
+      </div>
+      <span style="width: 44px"></span>
+    </div>
+
+    <section aria-labelledby="b-total" style="padding: 18px; border-radius: 20px; background: #17181C; color: #FFFFFF; display: flex; flex-direction: column; gap: 10px">
+      <h2 id="b-total" style="margin: 0; font-size: 13px; font-weight: 500; color: #C9CDD4">이번 달 지출</h2>
+      <div style="display: flex; align-items: baseline; gap: 8px">
+        <span style="font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em">HK$4,126.5</span>
+      </div>
+      <div style="height: 10px; border-radius: 999px; background: #3A3D45; overflow: hidden; display: flex">
+        <span style="width: 31%; background: #7CC4EC"></span>
+        <span style="width: 7%; background: #F0B54C"></span>
+        <span style="width: 6%; background: #FFFFFF"></span>
+        <span style="width: 25%; background: #8E949E"></span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 13px; color: #C9CDD4"><span>예산 HK$6,000의 69%</span><span>HK$1,873.5 남음</span></div>
+    </section>
+
+    <section aria-label="시로의 한마디" style="padding: 14px; border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E6EB; display: flex; gap: 12px; align-items: flex-start">
+      <img src="/_blob/e484ac5ceb46043b71c01ae0b9d3decc" alt="" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none">
+      <span style="font-size: 14px; line-height: 1.55">이번 주 배달만 4번이야, 주인님. 식비가 지난달 이맘때보다 HK$300쯤 많아. 시험 끝나면 장 봐서 해 먹자.</span>
+    </section>
+
+    <section aria-labelledby="b-cat" style="padding: 16px; border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E6EB; display: flex; flex-direction: column; gap: 10px">
+      <h2 id="b-cat" style="margin: 0; font-size: 16px; font-weight: 700">분류별</h2>
+      <div style="display: flex; align-items: center; justify-content: space-between"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #1F7FB8"></span>식비</span><span style="font-weight: 600; font-variant-numeric: tabular-nums">HK$1,860.0</span></div>
+      <div style="display: flex; align-items: center; justify-content: space-between"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #C98A2A"></span>교통</span><span style="font-weight: 600; font-variant-numeric: tabular-nums">HK$425.0</span></div>
+      <div style="display: flex; align-items: center; justify-content: space-between"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #17181C"></span>구독</span><span style="font-weight: 600; font-variant-numeric: tabular-nums">HK$380.0</span></div>
+      <div style="display: flex; align-items: center; justify-content: space-between"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #8E949E"></span>기타</span><span style="font-weight: 600; font-variant-numeric: tabular-nums">HK$1,461.5</span></div>
+    </section>
+
+    <section aria-labelledby="b-recent" style="padding: 16px; border-radius: 18px; background: #FFFFFF; border: 1px solid #E4E6EB; display: flex; flex-direction: column; gap: 2px">
+      <h2 id="b-recent" style="margin: 0 0 6px; font-size: 16px; font-weight: 700">최근</h2>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 48px">
+        <span style="flex: 1; display: flex; flex-direction: column; min-width: 0"><span style="font-weight: 600">쌀국수</span><span style="font-size: 12px; color: #626770">오늘 12:24 · 식비 · <span style="color: #165E89; font-weight: 600">시로가 기록</span></span></span>
+        <span style="font-weight: 600; font-variant-numeric: tabular-nums">−HK$68.0</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 48px">
+        <span style="flex: 1; display: flex; flex-direction: column; min-width: 0"><span style="font-weight: 600">MTR</span><span style="font-size: 12px; color: #626770">오늘 09:40 · 교통</span></span>
+        <span style="font-weight: 600; font-variant-numeric: tabular-nums">−HK$9.6</span>
+      </div>
+    </section>
+  </div>
+
+  <button type="button" aria-label="지출 추가" style="position: absolute; right: 20px; bottom: 36px; height: 56px; padding: 0 22px; border: 0; border-radius: 28px; background: #1F7FB8; color: #FFFFFF; font: inherit; font-weight: 700; display: flex; align-items: center; gap: 8px; box-shadow: 0 6px 18px rgba(23, 24, 28, 0.18)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>지출 추가
+  </button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
