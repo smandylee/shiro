@@ -105,6 +105,17 @@ export async function listUpcomingCanvas(withinDays = 14): Promise<CanvasItem[]>
   return (await loadFeed()).filter((i) => i.dueMs > now && i.dueMs <= until && !isDoneStmt.get(i.id));
 }
 
+/**
+ * The same, from what is already fetched, never waiting on the network: for a conversation turn,
+ * which must not get slower for it. The reminder tick keeps the cache fresh. Empty before the first fetch.
+ */
+export function cachedUpcomingCanvas(withinDays = 14): CanvasItem[] {
+  if (!cache) return [];
+  const now = Date.now();
+  const until = now + withinDays * 24 * 60 * 60 * 1000;
+  return cache.items.filter((i) => i.dueMs > now && i.dueMs <= until && !isDoneStmt.get(i.id));
+}
+
 /** Marks an item as handed in; returns its title, or null when no current item has that id. */
 export async function markCanvasDone(id: string): Promise<string | null> {
   const item = (await loadFeed()).find((i) => i.id === id.trim());

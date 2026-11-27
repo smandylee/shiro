@@ -57,6 +57,7 @@ import {
   updateFact,
 } from "../memory/profile.js";
 import { moodBlock } from "../memory/mood.js";
+import { openItemsBlock } from "../open-items.js";
 import {
   MAX_NOTES,
   addNote,
@@ -1156,6 +1157,8 @@ export async function chat(history: ChatTurn[], userMessage: string, opts: ChatO
       `여덟 가지로 담기 어려운 섬세한 느낌이 있으면 [emotion:…] 바로 뒤에 [voice:영어 단어 한두 개]를 붙일 수 있다 ` +
       `(예: [voice:whispering, shy], [voice:teasing], [voice:sulking], [voice:warm]). 영어 소문자와 쉼표만, 40자 이내, 한 줄에 하나. ` +
       `평소 답에는 쓰지 않고 느낌이 바뀔 때만 쓴다. 표시에 대해 말하거나 설명하지 않는다.`;
+    // Open to-dos and deadlines, so the owner saying one is done closes it (open-items.ts).
+    systemInstruction += openItemsBlock();
     systemInstruction += moodBlock();
     systemInstruction += OWNER_INTIMACY;
     // persona.ts only names "헤헤", and the model fills the gap with other laughs; its own earlier

@@ -40,6 +40,7 @@ orchestrator/   TS, ESM, tsx로 실행. VM(홍콩 Lightsail)에서 systemd로 24
   src/wonder.ts       대화와 무관하게 스스로 궁금해하기 (목록이 비면 소재를 만든다)
   src/proactive.ts    아침 브리핑·할 일 알림, 새벽 학습(프로필·기분)을 부르는 틱
   src/wake.ts         주인님의 하루가 시작된 순간 감지 (기기 연결·첫 메시지, 4시간+ 부재 뒤. 주인님은 항상 자리비움이라 상태 글자는 안 본다). 규칙은 wake-core.ts
+  src/open-items.ts   열린 할 일·Canvas 마감을 주인님 대화에 붙인다 (있을 때만) → "냈어" 한마디로 닫힌다
   src/voice.ts        음성 받아쓰기 (Gemini)
   src/memory/         SQLite(단기·설정·연락처·할일·사용량·프로필·기분·궁금증) + 장기기억(벡터도 SQLite, `SHIRO_MEMORY_STORE`; Pinecone은 선택·미러)
     mood.ts           기분과 "남은 마음" (계산·문구는 mood-core.ts, 새벽 회고는 mood-learn.ts)
